@@ -391,6 +391,7 @@ body.modal-open { overflow: hidden; }
 }
 .marker-pin { color: var(--error); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4)); }
 .marker-pin svg { width: 34px; height: 34px; display: block; fill: var(--surface-strong); }
+.marker-from { color: var(--ok); }
 .marker-you {
   width: 20px;
   height: 20px;
@@ -516,6 +517,10 @@ body.directions-open .topbar { display: none; }
 @media (min-width: 921px) {
   #directionsPanel { top: var(--tray-top); bottom: auto; }
 }
+/* Stacked under the map, it leaves the map to tap for an end, and the tray clear above it. */
+@media (max-width: 920px) {
+  #directionsPanel { max-height: 46vh; }
+}
 
 .sheet-head {
   display: flex;
@@ -527,6 +532,9 @@ body.directions-open .topbar { display: none; }
 
 .route-ends { display: flex; align-items: center; gap: 8px; }
 .route-fields { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.route-field { display: flex; align-items: center; gap: 6px; }
+.route-field .field { flex: 1 1 0; min-width: 0; }
+.route-field [aria-pressed="true"] { background: var(--accent-fill); color: var(--on-accent); }
 .route-summary { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .route-summary strong { font-size: 1.3rem; font-weight: normal; }
 #routeResult.hidden { display: none; }

@@ -221,6 +221,7 @@ export function openSaved() {
 export function wirePlaces() {
   $("#placeClose").addEventListener("click", hidePlace);
   $("#placeGo").addEventListener("click", () => currentPlace && handlers.directions(currentPlace));
+  $("#placeFrom").addEventListener("click", () => currentPlace && handlers.directionsFrom(currentPlace));
   $("#placeShare").addEventListener("click", () => currentPlace && handlers.share(currentPlace));
   $("#placeSave").addEventListener("click", () => {
     if (!currentPlace) return;

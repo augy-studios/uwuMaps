@@ -8,7 +8,7 @@ import { initPacks, openPacks, wirePacks } from "./js/packs.js";
 import { getMap, initMap, onStyle, refreshStyle, setYouMarker } from "./js/map.js";
 import { initTransit, openLayers, transitCardAt, wireLayers } from "./js/transit.js";
 import { addSavedLayer, hidePlace, openSaved, savedPlaces, setPlaceHandlers, showPlace, wirePlaces } from "./js/places.js";
-import { closeDirections, openDirections, setDirectionsHandlers, wireDirections } from "./js/directions.js";
+import { closeDirections, directionsOpen, openDirections, pickFromMap, setDirectionsHandlers, wireDirections } from "./js/directions.js";
 import { isNavigating, startNavigation, wireNav } from "./js/nav.js";
 import { openIncoming, receiveShared, shareDirections, shareList, sharePlace, wireShare } from "./js/share.js";
 import { onNearbyReceive, openNearby, wireNearby } from "./js/nearby.js";
@@ -162,27 +162,30 @@ function nameAt(map, point) {
   return hit ? { name: hit.properties["name:en"] || hit.properties.name, coords: hit.geometry.type === "Point" ? hit.geometry.coordinates : null } : null;
 }
 
+// What's at a tap: a saved place, then a transport marker, then anything the map has named.
+async function placeAt(map, e) {
+  const pin = map.getLayer("saved") && map.queryRenderedFeatures([[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]], { layers: ["saved"] })[0];
+  const saved = pin && savedPlaces().find((p) => p.id === pin.properties.id);
+  if (saved) return saved;
+  const transit = await transitCardAt(e.point);
+  if (transit) return transit;
+  const named = nameAt(map, e.point);
+  if (!named) return null;
+  const [lon, lat] = named.coords || [e.lngLat.lng, e.lngLat.lat];
+  return { name: named.name, lat, lon };
+}
+
 function wireMapTap(map) {
   map.on("click", async (e) => {
     if (isNavigating()) return;
     $("#searchResults").classList.add("hidden");
-    const pin = map.getLayer("saved") && map.queryRenderedFeatures([[e.point.x - 6, e.point.y - 6], [e.point.x + 6, e.point.y + 6]], { layers: ["saved"] })[0];
-    if (pin) {
-      const place = savedPlaces().find((p) => p.id === pin.properties.id);
-      if (place) {
-        showPlace(place, { fly: false });
-        return;
-      }
-    }
-    const transit = await transitCardAt(e.point);
-    if (transit) {
-      showPlace(transit, { fly: false });
+    const place = await placeAt(map, e);
+    if (directionsOpen()) {
+      if (!pickFromMap(place || { name: "Dropped pin", lat: e.lngLat.lat, lon: e.lngLat.lng })) toast("Press the pin beside From or To to change it");
       return;
     }
-    const named = nameAt(map, e.point);
-    if (named) {
-      const [lon, lat] = named.coords || [e.lngLat.lng, e.lngLat.lat];
-      showPlace({ name: named.name, lat, lon }, { fly: false });
+    if (place) {
+      showPlace(place, { fly: false });
       return;
     }
     if ($("#placeCard").classList.contains("hidden")) {
@@ -243,6 +246,7 @@ async function boot() {
   window.addEventListener("uwu:hydrate", (e) => hydrateIcons(e.detail));
   setPlaceHandlers({
     directions: (place) => openDirections({ from: "here", to: place }),
+    directionsFrom: (place) => openDirections({ from: place, to: null }),
     share: sharePlace,
     shareList,
   });

@@ -106,15 +106,30 @@ export async function initMap() {
 
 let placeMarker = null;
 let youMarker = null;
+const endMarkers = {};
+
+function pinMarker(className) {
+  const el = document.createElement("div");
+  el.className = className;
+  el.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7.5-6.8 7.5-12.3a7.5 7.5 0 0 0-15 0C4.5 15.2 12 22 12 22z"/><circle cx="12" cy="9.7" r="2.6" fill="currentColor"/></svg>`;
+  return new maplibregl.Marker({ element: el, anchor: "bottom" });
+}
 
 export function setPlaceMarker(lat, lon) {
-  if (!placeMarker) {
-    const el = document.createElement("div");
-    el.className = "marker-pin";
-    el.innerHTML = `<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7.5-6.8 7.5-12.3a7.5 7.5 0 0 0-15 0C4.5 15.2 12 22 12 22z"/><circle cx="12" cy="9.7" r="2.6" fill="currentColor"/></svg>`;
-    placeMarker = new maplibregl.Marker({ element: el, anchor: "bottom" });
-  }
+  placeMarker ||= pinMarker("marker-pin");
   placeMarker.setLngLat([lon, lat]).addTo(map);
+}
+
+// The two ends of a route being planned. An end of null or "here" has no pin of its own.
+export function setEndMarkers(from, to) {
+  for (const [which, end, className] of [["from", from, "marker-pin marker-from"], ["to", to, "marker-pin"]]) {
+    if (end?.lat == null) {
+      endMarkers[which]?.remove();
+      continue;
+    }
+    endMarkers[which] ||= pinMarker(className);
+    endMarkers[which].setLngLat([end.lon, end.lat]).addTo(map);
+  }
 }
 
 export function clearPlaceMarker() {
@@ -170,7 +185,8 @@ export function fitCoords(coords) {
   const bounds = coords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]));
   const narrow = window.innerWidth <= 920;
   map.fitBounds(bounds, {
-    padding: narrow ? { top: 80, right: 70, bottom: 260, left: 30 } : { top: 80, right: 80, bottom: 60, left: 420 },
+    // Narrow, the panel takes up to 46% of the height from the bottom.
+    padding: narrow ? { top: 80, right: 70, bottom: Math.round(window.innerHeight * 0.5), left: 30 } : { top: 80, right: 80, bottom: 60, left: 420 },
     maxZoom: 16,
     pitch: 0,
     bearing: 0,

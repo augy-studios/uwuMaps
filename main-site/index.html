@@ -130,6 +130,7 @@
         <div id="placeDetail"></div>
         <div class="row">
             <button class="btn btn-primary" type="button" id="placeGo"><span data-icon="directions"></span>Directions</button>
+            <button class="btn" type="button" id="placeFrom"><span data-icon="pin"></span>From here</button>
             <button class="btn" type="button" id="placeSave"><span data-icon="bookmark"></span><span id="placeSaveLabel">Save</span></button>
             <button class="btn" type="button" id="placeShare"><span data-icon="share"></span>Share</button>
         </div>
@@ -149,8 +150,14 @@
         </div>
         <div class="route-ends">
             <div class="route-fields">
-                <input id="routeFrom" class="field" type="search" placeholder="From" aria-label="From" autocomplete="off">
-                <input id="routeTo" class="field" type="search" placeholder="To" aria-label="To" autocomplete="off">
+                <div class="route-field">
+                    <input id="routeFrom" class="field" type="search" placeholder="From" aria-label="From" autocomplete="off">
+                    <button class="icon-btn small" type="button" data-pick="from" aria-pressed="false" aria-label="Pick the start on the map" title="Pick the start on the map"><span data-icon="pin"></span></button>
+                </div>
+                <div class="route-field">
+                    <input id="routeTo" class="field" type="search" placeholder="To" aria-label="To" autocomplete="off">
+                    <button class="icon-btn small" type="button" data-pick="to" aria-pressed="false" aria-label="Pick the destination on the map" title="Pick the destination on the map"><span data-icon="pin"></span></button>
+                </div>
             </div>
             <button class="icon-btn" type="button" id="routeSwap" aria-label="Swap start and end" title="Swap start and end"><span data-icon="swap"></span></button>
         </div>

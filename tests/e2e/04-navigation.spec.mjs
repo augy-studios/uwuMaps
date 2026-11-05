@@ -1,6 +1,6 @@
 // Directions and live navigation, with the device's location moved along by the test.
 import { expect, test } from '@playwright/test';
-import { downloadSingapore, openApp, quietThirdParties, rendered, waitForMapIdle, waitForServiceWorker } from './helpers.mjs';
+import { collectErrors, downloadSingapore, jumpTo, openApp, quietThirdParties, rendered, waitForMapIdle, waitForServiceWorker } from './helpers.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -163,5 +163,80 @@ test('with no saved map, directions come from the online server', async ({ brows
   await expect(p.locator('#routeSource')).toHaveText('Online', { timeout: 30000 });
   const steps = await p.locator('#routeSteps li').allTextContents();
   expect(steps[steps.length - 1]).toContain('You have arrived');
+  await fresh.close();
+});
+
+test('both ends of a route can be picked by tapping the map, not only from where you are', async ({ browser }) => {
+  const fresh = await browser.newContext({ baseURL: 'http://127.0.0.1:4173', viewport: { width: 1280, height: 800 }, geolocation: { latitude: 1.3048, longitude: 103.8318 }, permissions: ['geolocation'] });
+  await quietThirdParties(fresh);
+  const p = await fresh.newPage();
+  const errors = collectErrors(p);
+  await openApp(p);
+  await jumpTo(p, { center: [103.8352, 1.3025], zoom: 15.5, pitch: 0, bearing: 0 });
+  await waitForMapIdle(p);
+  const tap = (x, y) => p.mouse.click(x, y);
+  const ends = () => p.evaluate(async () => {
+    const { directionsState } = await import('/js/directions.js');
+    const { from, to } = directionsState();
+    return { from, to };
+  });
+  const from = p.locator('#routeFrom');
+  const to = p.locator('#routeTo');
+  const pickFrom = p.locator('[data-pick="from"]');
+  const pickTo = p.locator('[data-pick="to"]');
+
+  await p.click('#directionsBtn');
+  await expect(from).toHaveValue('My location');
+  await expect(p.locator('#routeStatus')).toContainText('tap the map');
+  await expect(pickTo).toHaveAttribute('aria-pressed', 'true');
+
+  // The start, off a tap, then the destination is next without being asked for.
+  await pickFrom.click();
+  await expect(pickFrom).toHaveAttribute('aria-pressed', 'true');
+  await tap(700, 300);
+  await expect(from).not.toHaveValue('My location');
+  await expect(from).not.toHaveValue('');
+  await expect(pickTo).toHaveAttribute('aria-pressed', 'true');
+  await expect(p.locator('.marker-from')).toBeVisible();
+
+  await tap(900, 500);
+  await expect(to).not.toHaveValue('');
+  await expect(p.locator('#routeSource')).toHaveText('Online', { timeout: 30000 });
+  await expect(p.locator('.marker-pin:not(.marker-from)')).toBeVisible();
+  await expect(p.locator('#placeCard')).toHaveClass(/hidden/);
+  await p.waitForTimeout(800);
+  await p.screenshot({ path: 'test-results/directions-picked.png' });
+
+  // With both set a stray tap leaves the route alone, until an end is chosen to change.
+  const picked = await ends();
+  await tap(600, 770);
+  await expect(p.locator('#toast, .toast').first()).toContainText('Press the pin');
+  expect(await ends()).toEqual(picked);
+  await pickTo.click();
+  await tap(700, 40);
+  await expect.poll(async () => (await ends()).to.lat).not.toBe(picked.to.lat);
+  expect((await ends()).from).toEqual(picked.from);
+
+  // Back to starting from here, from the field.
+  await from.click();
+  await p.locator('#routeSuggestions button', { hasText: 'My location' }).click();
+  await expect(from).toHaveValue('My location');
+  await expect(p.locator('.marker-from')).toHaveCount(0);
+
+  await p.click('#directionsClose');
+  await expect(p.locator('.marker-pin')).toHaveCount(0);
+
+  // From a place's card, the other way round from its Directions.
+  await p.evaluate(async () => {
+    const { showPlace } = await import('/js/places.js');
+    showPlace({ name: 'Somerset', lat: 1.3006, lon: 103.8389 }, { fly: false });
+  });
+  await p.click('#placeFrom');
+  await expect(from).toHaveValue('Somerset');
+  await expect(to).toHaveValue('');
+  await tap(900, 500);
+  await expect(to).not.toHaveValue('');
+  await expect(p.locator('#routeSource')).toHaveText('Online', { timeout: 30000 });
+  expect(errors).toEqual([]);
   await fresh.close();
 });

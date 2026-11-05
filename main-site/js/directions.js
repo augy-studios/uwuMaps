@@ -1,6 +1,6 @@
 // The directions panel: two ends, how to travel, and the route between them.
 
-import { clearRoute, fitCoords, getMap, setYouMarker, showRoute } from "./map.js";
+import { clearRoute, fitCoords, getMap, setEndMarkers, setYouMarker, showRoute } from "./map.js";
 import { hidePlace, savedPlaces } from "./places.js";
 import { NoRoute, getRoute } from "./route-client.js";
 import { findPlaces, renderSuggestions } from "./search.js";
@@ -23,6 +23,8 @@ export const setDirectionsHandlers = (h) => {
 export const directionsState = () => state;
 
 let requestId = 0;
+// Which end a tap on the map fills: the field last chosen, then whichever's empty.
+let picking = null;
 
 const endLabel = (end) => (end === "here" ? HERE_LABEL : end?.name || "");
 
@@ -37,6 +39,15 @@ function drawModes() {
 function drawEnds() {
   $("#routeFrom").value = endLabel(state.from);
   $("#routeTo").value = endLabel(state.to);
+  setEndMarkers(state.from, state.to);
+}
+
+const nextEmpty = () => (!state.from ? "from" : !state.to ? "to" : null);
+const askForEnd = () => `${state.to ? "Where from?" : "Where to?"} Type it, or tap the map.`;
+
+function setPicking(which) {
+  picking = which;
+  document.querySelectorAll("[data-pick]").forEach((el) => el.setAttribute("aria-pressed", String(el.dataset.pick === which)));
 }
 
 function status(text) {
@@ -70,7 +81,7 @@ export async function planRoute({ fit = true } = {}) {
   $("#routeResult").classList.add("hidden");
   clearRoute();
   if (!state.from || !state.to) {
-    status(state.to ? "Where from?" : "Where to?");
+    status(askForEnd());
     return;
   }
   if (state.from === "here" && state.to === "here") {
@@ -108,16 +119,35 @@ export function openDirections({ from, to, mode } = {}) {
   drawEnds();
   document.body.classList.add("directions-open");
   $("#directionsPanel").classList.remove("hidden");
+  setPicking(nextEmpty());
   if (state.from && state.to) planRoute();
   else {
-    status("Where to?");
-    if (!state.to) $("#routeTo").focus({ preventScroll: true });
+    status(askForEnd());
+    // Not with a finger: the keyboard would come up over the map there is to tap.
+    if (!state.to && matchMedia("(pointer: fine)").matches) $("#routeTo").focus({ preventScroll: true });
   }
+}
+
+export const directionsOpen = () => !$("#directionsPanel").classList.contains("hidden");
+
+// A tap on the map, as an end of the route. Answers false if neither end is waiting for one.
+export function pickFromMap(place) {
+  const which = picking || nextEmpty();
+  if (!which) return false;
+  state[which] = { name: place.name, lat: place.lat, lon: place.lon };
+  $("#routeSuggestions").classList.add("hidden");
+  document.activeElement?.blur();
+  setPicking(nextEmpty());
+  drawEnds();
+  planRoute();
+  return true;
 }
 
 export function closeDirections() {
   requestId++;
   state.route = null;
+  setPicking(null);
+  setEndMarkers(null, null);
   document.body.classList.remove("directions-open");
   $("#directionsPanel").classList.add("hidden");
   $("#routeSuggestions").classList.add("hidden");
@@ -140,14 +170,28 @@ function attachSuggest(input, which) {
   const pick = (place) => {
     state[which] = place;
     list.classList.add("hidden");
+    setPicking(nextEmpty());
     drawEnds();
     planRoute();
   };
+
+  const offer = (found, emptyText) => {
+    results = found;
+    list.dataset.for = which;
+    renderSuggestions(list, results, emptyText);
+    hydrateIcons(list);
+    list.pickResult = (i) => {
+      const r = results[i];
+      pick(r.here ? "here" : r);
+    };
+  };
+  const HERE = { name: HERE_LABEL, lat: 0, lon: 0, here: true };
 
   input.addEventListener("input", () => {
     clearTimeout(timer);
     const q = input.value.trim();
     state[which] = null;
+    setEndMarkers(state.from, state.to);
     if (q.length < 2) {
       list.classList.add("hidden");
       return;
@@ -164,18 +208,16 @@ function attachSuggest(input, which) {
         return;
       }
       if (asked !== controller) return;
-      results = found;
-      list.dataset.for = which;
-      if (which === "from") results = [{ name: HERE_LABEL, lat: 0, lon: 0, here: true }, ...results];
-      renderSuggestions(list, results, "Nothing found");
-      hydrateIcons(list);
-      list.pickResult = (i) => {
-        const r = results[i];
-        pick(r.here ? "here" : r);
-      };
+      offer(which === "from" ? [HERE, ...found] : found, "Nothing found");
     }, 250);
   });
-  input.addEventListener("focus", () => input.select());
+  input.addEventListener("focus", () => {
+    input.select();
+    setPicking(which);
+    list.classList.add("hidden");
+    // The way back to starting from here, once a start's been picked.
+    if (which === "from" && state.from !== "here") offer([HERE], "");
+  });
 }
 
 export function wireDirections() {
@@ -189,9 +231,16 @@ export function wireDirections() {
   });
   $("#routeSwap").addEventListener("click", () => {
     [state.from, state.to] = [state.to, state.from];
+    setPicking(nextEmpty());
     drawEnds();
     planRoute();
   });
+  document.querySelectorAll("[data-pick]").forEach((btn) => btn.addEventListener("click", () => {
+    const which = btn.dataset.pick;
+    setPicking(picking === which ? null : which);
+    $("#routeSuggestions").classList.add("hidden");
+    status(picking ? `Tap the map for ${which === "from" ? "where to start" : "where to go"}.` : "");
+  }));
   attachSuggest($("#routeFrom"), "from");
   attachSuggest($("#routeTo"), "to");
   $("#routeSuggestions").addEventListener("click", (e) => {
