@@ -126,9 +126,11 @@ test('the tray collapses, leaves the tab order, remembers, and lets clicks throu
   await tab.click();
   await expect(tab).toHaveAttribute('aria-label', 'Show menu');
   expect(await page.locator('#trayButtons').evaluate((el) => el.inert)).toBe(true);
-  await page.waitForTimeout(500);
-  const box = await tab.boundingBox();
-  expect(Math.round(box.x + box.width)).toBe(1280);
+  // Until it's slid home: the map in 3D with no GPU can hold the animation up well past its 0.34s.
+  await expect.poll(async () => {
+    const box = await tab.boundingBox();
+    return Math.round(box.x + box.width);
+  }).toBe(1280);
 
   await page.reload();
   await expect(page.locator('#trayTab')).toHaveAttribute('aria-expanded', 'false');

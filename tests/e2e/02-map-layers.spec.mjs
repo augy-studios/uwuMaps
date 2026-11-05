@@ -24,6 +24,26 @@ test('3D buildings draw in colour, from Overture, online', async ({ page }) => {
   await page.screenshot({ path: 'test-results/buildings-light.png' });
 });
 
+// What MapLibre makes of each: rendered features can't show this, as a building of no height still counts.
+test('a building stands at its height, then its floors, then the default', async ({ page }) => {
+  await openApp(page);
+  await expect.poll(() => rendered(page, ['buildings-walls', 'parts-walls']), { timeout: 60000 }).toBeGreaterThan(0);
+  const metres = await page.evaluate(async () => {
+    const { getMap } = await import('/js/map.js');
+    const paint = getMap().getLayer('buildings-walls').paint;
+    const at = (name, properties) => paint.get(name).evaluate({ type: 'Polygon', properties }, {}, {}, []);
+    return {
+      stated: at('fill-extrusion-height', { height: 30, num_floors: 4 }),
+      floors: at('fill-extrusion-height', { num_floors: 4 }),
+      neither: at('fill-extrusion-height', {}),
+      baseStated: at('fill-extrusion-base', { min_height: 9 }),
+      baseFloors: at('fill-extrusion-base', { min_floor: 2 }),
+      baseNeither: at('fill-extrusion-base', {}),
+    };
+  });
+  expect(metres).toEqual({ stated: 30, floors: 12.8, neither: 6, baseStated: 9, baseFloors: 6.4, baseNeither: 0 });
+});
+
 // In the order they're drawn: a flat layer after the 3D ones paints over them, while still counting as
 // rendered, so only this shows it.
 const buildingsAboveFlatLayers = (page) => page.evaluate(async () => {

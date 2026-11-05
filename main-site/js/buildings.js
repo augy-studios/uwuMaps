@@ -43,8 +43,14 @@ function shade(hex) {
   return `#${f((n >> 16) & 255)}${f((n >> 8) & 255)}${f(n & 255)}`;
 }
 
-const heightOf = ["coalesce", ["to-number", ["get", "height"]], ["*", ["to-number", ["get", "num_floors"]], FLOOR_METRES], DEFAULT_HEIGHT];
-const baseOf = ["coalesce", ["to-number", ["get", "min_height"]], ["*", ["to-number", ["get", "min_floor"]], FLOOR_METRES], 0];
+// By "has", not "coalesce": to-number makes a missing value 0, which coalesce would stop at, laying
+// flat everything without a stated height.
+const metres = (key, floorsKey, otherwise) => ["case",
+  ["has", key], ["to-number", ["get", key]],
+  ["has", floorsKey], ["*", ["to-number", ["get", floorsKey]], FLOOR_METRES],
+  otherwise];
+const heightOf = metres("height", "num_floors", DEFAULT_HEIGHT);
+const baseOf = metres("min_height", "min_floor", 0);
 
 // A building split into parts is drawn by its parts alone. Overture's own tiles also carry underground
 // buildings, which the pack's copies have already dropped.

@@ -75,7 +75,8 @@ export async function initMap() {
     container: "map",
     style: await loadStyle(currentStyle),
     ...(saved || DEFAULT_VIEW),
-    maxPitch: 75,
+    // Tilting from 58 to 75 degrees nearly halved the frame rate, with far more tiles in view at the horizon.
+    maxPitch: 60,
     attributionControl: { compact: true },
     canvasContextAttributes: { preserveDrawingBuffer: false },
   });
