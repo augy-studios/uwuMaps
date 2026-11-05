@@ -253,7 +253,8 @@ jobs:
             --bounds="$BOUNDS" --route="$ID.route" --search="$ID.search"
 
       # Everything is here, so --download fetches nothing. Node locations go in a memory-mapped file,
-      # which keeps a big country within the runner's 16 GB.
+      # which keeps a big country within the runner's 16 GB. Planetiler takes the format from the
+      # output's extension, so it writes .pmtiles and the file's renamed after.
       - name: Basemap
         run: |
           java -Xmx8g -jar planetiler.jar \
@@ -262,8 +263,9 @@ jobs:
             --bounds="$BOUNDS" \
             --maxzoom=14 \
             --storage=mmap \
-            --output="$ID.base" \
+            --output="$ID.pmtiles" \
             --force
+          mv "$ID.pmtiles" "$ID.base"
           rm -f "data/sources/$ID.osm.pbf"
           head -c 7 "$ID.base" | grep -q PMTiles
           ls -la "$ID.base"
