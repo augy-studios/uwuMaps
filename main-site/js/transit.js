@@ -11,6 +11,7 @@
 
 import { addBuildings, setBuildingsVisible } from "./buildings.js";
 import { getMap, onStyle } from "./map.js";
+import { doorsHtml, wireDoors } from "./mrt-doors.js";
 import { getStoredMode } from "./theme.js";
 import { $, escapeHtml, isOnline, readJson, writeJson } from "./ui.js";
 
@@ -312,37 +313,6 @@ function renderLiveStatus() {
 
 const CLICK_LAYERS = ["my-live-trains", "my-live-buses", "sg-stations", "my-stations", "sg-exits", "sg-stops", "my-stops"];
 
-function doorsDetail(codes, platforms) {
-  const here = platforms.filter((p) => codes.includes(p.c));
-  if (!here.length) return "";
-  const dirs = new Set(platforms.map((p) => p.d));
-  const terminus = (d) => {
-    let best = null;
-    for (const p of platforms) if (p.d === d && (!best || p.o > best.o)) best = p;
-    return best?.n || "";
-  };
-  const NAMES = { escalator: "Escalators", lift: "Lift", stairs: "Stairs" };
-  const describe = (f) => {
-    const ways = String(f.to || "").split("/").map((s) => s.trim()).filter(Boolean);
-    const words = ways.map((w) => {
-      if (w.toLowerCase() === "exit") return "exit";
-      if (dirs.has(w)) return `${w.split("-")[0]} line`;
-      return w;
-    });
-    return [...new Set(words)].join(", ");
-  };
-  const rows = here.map((p) => {
-    const facilities = (p.f || []).map((f) => {
-      const to = describe(f);
-      const doors = (f.doors || []).join(", ");
-      return `<li>${escapeHtml(NAMES[f.t] || f.t)}: door${(f.doors || []).length > 1 ? "s" : ""} ${escapeHtml(doors)}${to ? ` <span class="muted">(${escapeHtml(to)})</span>` : ""}</li>`;
-    }).join("");
-    if (!facilities) return "";
-    return `<p class="door-dir">${escapeHtml(p.c)} towards ${escapeHtml(terminus(p.d))}</p><ul class="door-list">${facilities}</ul>`;
-  }).join("");
-  return rows ? `<details class="doors"><summary>Which train door to stand at</summary><p class="muted">Counted from the front of the train.</p>${rows}</details>` : "";
-}
-
 const sgTransitLink = (lat, lon, name) => `${SGBUS}/#nav/here/${lat.toFixed(5)},${lon.toFixed(5)}~${encodeURIComponent(name).replace(/[!'()*~]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`;
 
 // What the card a tapped marker opens says. Answers null for what it isn't.
@@ -355,7 +325,7 @@ async function cardFor(feature) {
       const codes = p.codes.split(" ");
       let detail = "";
       try {
-        detail = doorsDetail(codes, (await dataset("sg-mrt-doors")).platforms || []);
+        detail = doorsHtml(codes, (await dataset("sg-mrt-doors")).platforms || []);
       } catch {
         // The station card still works without them.
       }
@@ -461,6 +431,7 @@ export function openLayers() {
 }
 
 export function wireLayers() {
+  wireDoors();
   $("#layersList").addEventListener("change", (e) => {
     const box = e.target.closest("[data-layer]");
     if (!box) return;

@@ -102,9 +102,27 @@ test('Singapore: stations, exits, stops and doors, handing over to SG Bus Timing
   expect(href).toMatch(/^https:\/\/sgbus\.uwuapps\.org\/#nav\/here\/1\.28\d+,103\.85\d+~Raffles%20Place%20MRT$/);
   expect(await link.getAttribute('target')).toBe('_blank');
 
-  await page.locator('#placeDetail summary').click();
-  await expect(page.locator('#placeDetail .door-dir').first()).toContainText('towards');
-  await expect(page.locator('#placeDetail .door-list li').first()).toContainText(/door/);
+  // The doors as SG Bus Timings' Explorer draws them: a page for each platform, always shown.
+  const page1 = page.locator('#placeDetail .mcSlide:visible');
+  await expect(page1).toHaveCount(1);
+  await expect(page1.locator('.mcDirText b')).toContainText('Towards');
+  await expect(page1.locator('.doorRow').first().locator('.ico svg')).toBeVisible();
+  await expect(page1.locator('.doorChip .doorTop').first()).toHaveText('Door');
+  await expect(page1.locator('.doorChip b').first()).toHaveText(/^\d+$/);
+  await expect(page1.locator('.doorFoot .dnSvg')).toBeVisible();
+  await expect(page1.locator('.doorFoot')).toContainText('Door number:');
+  await expect(page1.locator('.doorTop').first()).toHaveCSS('background-color', 'rgb(212, 46, 18)');
+
+  // Turn the page, and turn it back.
+  const count = page.locator('#placeDetail .mcCount');
+  const first = await page1.locator('.mcDir').innerText();
+  const total = Number((await count.innerText()).split(' of ')[1]);
+  expect(total).toBeGreaterThan(1);
+  await page.locator('#placeDetail [data-mc-step="1"]').click();
+  await expect(count).toHaveText(`2 of ${total}`);
+  await expect(page1.locator('.mcDir')).not.toHaveText(first);
+  await page.locator('#placeDetail [data-mc-step="-1"]').click();
+  await expect(count).toHaveText(`1 of ${total}`);
 });
 
 test('Singapore: a bus stop card links to its timings', async ({ page }) => {

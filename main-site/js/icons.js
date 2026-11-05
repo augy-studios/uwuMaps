@@ -40,6 +40,14 @@ export const icons = {
   uturn: svg('<path d="M8 21V9a5 5 0 0 1 10 0v5"/><path d="m14 11 4 4 4-4"/>'),
   roundabout: svg('<circle cx="12" cy="10" r="4"/><path d="M12 14v8M16 7l4-4M20 8V3h-5"/>'),
   arrive: svg('<path d="M6 21V4h12l-3 4 3 4H6"/>'),
+  // A station's doors (js/mrt-doors.js), as SG Bus Timings draws them. An escalator: its handrail
+  // round from the bottom landing to the top, and someone on it.
+  escalator: svg('<path d="M4.5 20.5H9l10-10h.5a2.5 2.5 0 0 0 0-5H17L7 15.5H4.5a2.5 2.5 0 0 0 0 5z"/><rect x="4.4" y="10.6" width="3.2" height="4.9" rx="1.6" fill="currentColor" stroke="none"/><circle cx="6" cy="7.6" r="1.7" fill="currentColor" stroke="none"/>'),
+  lift: svg('<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="m8.5 10 3.5-3.5 3.5 3.5M8.5 14l3.5 3.5 3.5-3.5"/>'),
+  stairs: svg('<path d="M3 20h5v-5h5v-5h5V5h3"/>'),
+  across: svg('<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>'),
+  back: svg('<path d="M19 12H5M11 6l-6 6 6 6"/>'),
+  forward: svg('<path d="M5 12h14M13 6l6 6-6 6"/>'),
 };
 
 export function icon(name) {

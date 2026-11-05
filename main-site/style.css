@@ -56,6 +56,7 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
   --surface-border: rgba(255, 255, 255, 0.65);
   --ink: #121815;
   --muted: #5b665f;
+  --muted-door: #5b665f;
   --shadow: 0 10px 30px rgba(20, 40, 30, 0.10);
   --brand-ink: #1f6b3d;
   --ok: #0f7234;
@@ -71,6 +72,8 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
   --surface-border: rgba(255, 255, 255, 0.14);
   --ink: #eef2ef;
   --muted: #9aa7a0;
+  /* SG Bus Timings' grey on a station's doors: 4.5:1 on a strong surface. */
+  --muted-door: #a9b5ae;
   --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
   --brand-ink: #bff5cf;
   --ok: #4ade80;
@@ -101,6 +104,10 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
   --on-accent: var(--on-brand);
   /* What a floating panel over the map sits on, since --surface alone is nearly clear in dark mode. */
   --panel: color-mix(in srgb, var(--bg) 82%, transparent);
+  /* A station's doors (js/mrt-doors.js): white on a line's colour, an LRT line's, the spot ringed. */
+  --on-line: #ffffff;
+  --line-other: #748477;
+  --door-spot: #f2b31b;
 }
 
 /* flat, static colour derived from theme, no gradients */
@@ -652,11 +659,136 @@ body.navigating .topbar { display: none; }
 .switch:checked::after { transform: translateX(18px); }
 .switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-/* ---- a station's train doors ---- */
-.doors { font-size: 0.88rem; }
-.doors summary { cursor: pointer; color: var(--brand-ink); padding: 2px 0; }
-.door-dir { margin-top: 8px; }
-.door-list { list-style: none; color: var(--muted-strong); }
+/* ---- a station's train doors (js/mrt-doors.js), as SG Bus Timings' Explorer draws them ---- */
+.ico { display: inline-flex; align-items: center; flex-shrink: 0; }
+#placeDetail { --muted: var(--muted-door); }
+.lineCode {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--line, var(--line-other));
+  color: var(--on-line);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.mcNote { margin: 0; font-size: 0.8125rem; color: var(--muted-strong); display: flex; align-items: center; gap: 6px; }
+.mcNote .ico svg { width: 16px; height: 16px; }
+.mcCarousel { display: grid; grid-template-columns: 30px 1fr 30px; align-items: center; gap: 4px; }
+.mcArrow {
+  position: relative;
+  width: 30px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+}
+.mcArrow::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+.mcArrow[hidden] { visibility: hidden; display: inline-flex; }
+.mcArrow svg { width: 18px; height: 18px; }
+.mcSlides { min-width: 0; }
+.mcSlide { min-width: 0; display: flex; flex-direction: column; gap: 10px; touch-action: pan-y pinch-zoom; }
+.mcSlide[hidden] { display: none; }
+.mcSlide.fromRight { animation: mcSlideIn 0.22s ease-out; --from: 24px; }
+.mcSlide.fromLeft { animation: mcSlideIn 0.22s ease-out; --from: -24px; }
+@keyframes mcSlideIn {
+  from { opacity: 0; transform: translateX(var(--from)); }
+  to { opacity: 1; transform: none; }
+}
+.mcDir { display: flex; align-items: center; gap: 8px; }
+.mcDirText { display: flex; flex-direction: column; font-size: 0.875rem; }
+.mcDirText span { font-size: 0.75rem; color: var(--muted); }
+.mcCount { margin: 0; text-align: center; font-size: 0.75rem; color: var(--muted); }
+.legDoors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+}
+.doorRows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* Each row's doors go under what it is and where it leads. */
+.doorRow {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  grid-template-areas: "ico where" "ico chips";
+  align-items: start;
+  gap: 10px;
+  row-gap: 6px;
+}
+.doorRow > .ico { grid-area: ico; width: 24px; height: 24px; color: var(--brand-ink); }
+.doorRow > .ico svg { width: 24px; height: 24px; }
+.doorRow > .doorWhere { grid-area: where; color: var(--ink); }
+.doorChips { grid-area: chips; display: flex; flex-wrap: wrap; gap: 8px; }
+/* A little platform door: a band in the line's colour saying Door, over glass split down the
+   middle, with the door's number on it, as on the real one. */
+.doorChip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 46px;
+  border-radius: 7px 7px 3px 3px;
+  border: 2px solid color-mix(in srgb, var(--ink) 70%, transparent);
+  overflow: hidden;
+  position: relative;
+  isolation: isolate;
+  background: color-mix(in srgb, var(--brand) 25%, var(--surface-strong));
+}
+/* Where the door's two leaves meet, behind its band and number. */
+.doorChip::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 1px);
+  width: 2px;
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.doorTop {
+  align-self: stretch;
+  padding: 1px 6px 2px;
+  background: var(--line, var(--brand-ink));
+  color: var(--on-line);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.doorChip b {
+  margin: 5px 5px 7px;
+  padding: 1px 8px 3px;
+  border-radius: 5px;
+  background: var(--surface-strong);
+  color: var(--ink);
+  font-size: 1.0625rem;
+  line-height: 1.15;
+}
+.doorWhere { font-size: 0.8125rem; }
+.doorFoot { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--muted); }
+.doorFoot b { font-weight: 700; color: var(--muted-strong); }
+/* Where on the platform door its number is (doorNumberAt). */
+.dnSvg { flex: none; width: 50px; height: 40px; }
+.dnFrame { fill: var(--surface-strong); stroke: color-mix(in srgb, var(--ink) 70%, transparent); stroke-width: 1.5; }
+.dnBand { fill: var(--line, var(--brand-ink)); }
+.dnGlass { fill: color-mix(in srgb, var(--brand) 25%, var(--surface-strong)); stroke: color-mix(in srgb, var(--ink) 55%, transparent); stroke-width: 1; }
+.dnRing { fill: none; stroke: var(--door-spot); stroke-width: 2; }
+.dnDot { fill: var(--door-spot); }
 .list-field { width: 110px; flex: none; padding: 6px 8px; font-size: 0.85rem; }
 #placeLinks[hidden] { display: none; }
 a.btn { text-decoration: none; color: var(--ink); }

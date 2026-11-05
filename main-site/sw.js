@@ -5,7 +5,7 @@
 // the message handler, so a person pressing Reload on the update bar is what brings it in
 // (docs/update-bar-spec.md).
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const SHELL_CACHE = `uwumaps-shell-${CACHE_VERSION}`;
 // Not versioned, so a new version of the app doesn't throw away what's been seen or saved.
 const TILE_CACHE = "uwumaps-tiles";
@@ -32,6 +32,7 @@ const SHELL = [
   "/js/directions.js",
   "/js/icons.js",
   "/js/map.js",
+  "/js/mrt-doors.js",
   "/js/nav.js",
   "/js/nearby.js",
   "/js/p2p.js",
