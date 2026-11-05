@@ -146,6 +146,12 @@ const REWRITE = /^\/(go|trip|eta|list)\/([^/]+)$/;
 
 function staticFile(res, url) {
   let path = decodeURIComponent(url.pathname);
+  // As vercel.json's cleanUrls does in production: a worker that precaches one of these gets a redirected
+  // response, which can't answer a navigation.
+  if (path.endsWith('.html')) {
+    res.writeHead(308, { Location: path === '/index.html' ? '/' : path.slice(0, -5) });
+    return res.end();
+  }
   if (path === '/') path = '/index.html';
   const file = normalize(join(ROOT, path));
   if (!file.startsWith(normalize(ROOT)) || !existsSync(file) || statSync(file).isDirectory()) {

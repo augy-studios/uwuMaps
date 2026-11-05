@@ -1,11 +1,37 @@
 // uwuMaps' service worker. Bump CACHE_VERSION on every change to anything listed below: the browser
 // compares this file byte for byte, so that bump is what makes an update happen at all.
 //
-// A new version downloads and then waits. Nothing here calls skipWaiting() or clients.claim() except
-// the message handler, so a person pressing Reload on the update bar is what brings it in
-// (docs/update-bar-spec.md).
+// What happens to each request:
+//
+//   navigation              the shell for the app's own addresses, / and the share links; anything else
+//                           from the network
+//   /api/                   not intercepted: it needs the network and says so itself
+//   same origin assets      cache first
+//   OpenFreeMap's tiles     cache first, in a cache that outlives versions
+//   Google Fonts            cache first, in a cache that outlives versions
+//   other cross origin      not intercepted: search, routing, Overture, analytics and ads
+//   range requests          not intercepted
+//   anything but GET        not intercepted
+//
+// Rules that are easy to break here:
+//
+// 1. A new version downloads and then waits. Nothing here calls skipWaiting() or clients.claim() except
+//    the message handler, so a person pressing Reload on the update bar is what brings it in
+//    (docs/update-bar-spec.md).
+//
+// 2. Navigations are answered from this worker's own shell, not the network. The shell's modules are
+//    cache first, so a network page would pair a new index.html with the previous build's JavaScript.
+//
+// 3. Nothing redirected goes in the shell. cleanUrls redirects /index.html to /, and a redirected response
+//    can't answer a navigation: the page fails with ERR_FAILED for anybody this worker controls.
+//
+// 4. Precache entries are fetched one at a time with cache: "reload". addAll fails the whole install on
+//    one bad path, and without "reload" a bumped worker can fill its new cache from the HTTP cache's old
+//    files.
+//
+// 5. Nothing under /api/ is ever cached, and saved packs, tiles and the font survive a new version.
 
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const SHELL_CACHE = `uwumaps-shell-${CACHE_VERSION}`;
 // Not versioned, so a new version of the app doesn't throw away what's been seen or saved.
 const TILE_CACHE = "uwumaps-tiles";
@@ -18,9 +44,9 @@ const GLYPH_RANGES = [
 ];
 const GLYPH_FONTS = ["Noto Sans Regular", "Noto Sans Bold", "Noto Sans Italic"];
 
+// Addresses the browser asks for. "/index.html" is absent because cleanUrls redirects it to "/" (rule 3).
 const SHELL = [
   "/",
-  "/index.html",
   "/style.css",
   "/script.js",
   "/manifest.json",
@@ -90,12 +116,27 @@ async function cacheAppFont() {
 }
 
 self.addEventListener("install", (event) => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(SHELL_CACHE);
-    await cache.addAll(SHELL);
-    await cacheAppFont();
-  })());
+  event.waitUntil(Promise.all([fillShell(), cacheAppFont()]));
+  // No skipWaiting. The new worker waits until somebody accepts the update.
 });
+
+async function fillShell() {
+  const cache = await caches.open(SHELL_CACHE);
+  const failed = [];
+  await Promise.all(SHELL.map(async (path) => {
+    try {
+      const response = await fetch(new Request(path, { cache: "reload" }));
+      if (!response.ok) throw new Error(`${response.status}`);
+      if (response.redirected) throw new Error("redirected");
+      await cache.put(path, response);
+    } catch (cause) {
+      failed.push(`${path} (${cause?.message ?? cause})`);
+    }
+  }));
+  if (failed.length) {
+    console.warn(`[uwumaps] ${failed.length} of ${SHELL.length} precache entries failed. Offline is degraded, not off:\n  ${failed.join("\n  ")}`);
+  }
+}
 
 // Old versions of the shell go. Saved packs, tiles and the font never do.
 self.addEventListener("activate", (event) => {
@@ -103,10 +144,16 @@ self.addEventListener("activate", (event) => {
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => (k.startsWith("uwumaps-shell-") && k !== SHELL_CACHE) || /^uwumaps-v\d+$/.test(k)).map((k) => caches.delete(k)));
   })());
+  // No clients.claim, for the same reason there is no skipWaiting above.
 });
 
 self.addEventListener("message", (event) => {
   const type = typeof event.data === "string" ? event.data : event.data?.type;
+
+  if (type === "version") {
+    event.source?.postMessage({ type: "version", version: CACHE_VERSION });
+    return;
+  }
 
   // The only place either of these is ever called.
   if (type === "skip-waiting") {
@@ -114,21 +161,43 @@ self.addEventListener("message", (event) => {
   }
 });
 
-async function fromShell(request) {
-  const url = new URL(request.url);
+async function staticAsset(request, url) {
   const cache = await caches.open(SHELL_CACHE);
-  // Precached by the full address, so a query string doesn't miss it.
+  // Kept by the path alone, so a query string doesn't miss it.
   const hit = await cache.match(url.pathname);
   if (hit) return hit;
-  return fetch(request);
+  try {
+    const response = await fetch(request);
+    if (isCacheable(response)) await cache.put(url.pathname, response.clone());
+    return response;
+  } catch {
+    return new Response("Offline", { status: 503 });
+  }
 }
 
-// Every page of the site is the one app, which reads the address itself. So a share link opens
-// offline too, and can say it needs a connection rather than failing to load.
-async function appPage() {
+// The app is the only page, and reads the address itself. So a share link opens offline too, and can say
+// it needs a connection rather than failing to load. Any other address goes to the network.
+const APP_ROUTES = /^\/(?:(?:go|trip|eta|list)\/[^/]+\/?)?$/;
+
+async function navigation(request, url) {
   const cache = await caches.open(SHELL_CACHE);
-  const hit = await cache.match("/index.html");
-  return hit || fetch("/index.html");
+  const page = await cache.match("/");
+  if (page && APP_ROUTES.test(url.pathname)) return page;
+  try {
+    return await fetch(request);
+  } catch {
+    // Offline and not a page this worker holds: the app is the only page.
+    return page ?? Response.error();
+  }
+}
+
+// Whether a same origin response may be kept. Every write to the shell after install goes through here.
+function isCacheable(response) {
+  if (!response || response.status !== 200) return false;
+  if (response.type !== "basic" && response.type !== "default") return false;
+  if (response.redirected) return false;
+  const control = (response.headers.get("Cache-Control") ?? "").toLowerCase();
+  return !control.includes("no-store") && !control.includes("private");
 }
 
 let trimming = false;
@@ -162,14 +231,19 @@ async function appFont(request, event) {
   const cache = await caches.open(FONT_CACHE);
   const hit = await cache.match(request.url);
   if (hit) return hit;
-  const res = await fetch(request);
-  if (res.ok || res.type === "opaque") event.waitUntil(cache.put(request.url, res.clone()));
-  return res;
+  try {
+    const res = await fetch(request);
+    if (res.ok || res.type === "opaque") event.waitUntil(cache.put(request.url, res.clone()));
+    return res;
+  } catch {
+    return new Response("", { status: 503 });
+  }
 }
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
+  if (request.headers.has("range")) return;
   const url = new URL(request.url);
 
   if (url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") {
@@ -186,9 +260,5 @@ self.addEventListener("fetch", (event) => {
   // The API needs the network and says so itself. Pack downloads go straight through.
   if (url.pathname.startsWith("/api/")) return;
 
-  if (request.mode === "navigate") {
-    event.respondWith(appPage());
-    return;
-  }
-  event.respondWith(fromShell(request));
+  event.respondWith(request.mode === "navigate" ? navigation(request, url) : staticAsset(request, url));
 });

@@ -28,6 +28,34 @@ test('a first install asks for nothing, and the worker takes over on the next lo
   await expect(page.locator('.update-notice')).toHaveCount(0);
 });
 
+// What an installed app does on every launch. A redirected page in the shell fails all of these with
+// ERR_FAILED, and only for somebody the worker already controls.
+test('the worker answers a launch, a reload and a share link with the page, none of it redirected', async () => {
+  const shell = await page.evaluate(async () => {
+    const name = (await caches.keys()).find((k) => k.startsWith('uwumaps-shell-'));
+    const cache = await caches.open(name);
+    const all = await cache.keys();
+    const responses = await Promise.all(all.map((k) => cache.match(k)));
+    return { count: all.length, redirected: responses.filter((r) => r.redirected).map((r) => r.url), index: Boolean(await cache.match('/index.html')) };
+  });
+  expect(shell.count).toBeGreaterThan(30);
+  expect(shell.redirected).toEqual([]);
+  expect(shell.index).toBe(false);
+  for (const path of ['/', '/?source=pwa', '/go/abcd1234']) {
+    const res = await page.goto(path);
+    expect(res.status(), path).toBe(200);
+    expect(res.fromServiceWorker(), path).toBe(true);
+    await page.waitForFunction(() => document.querySelector('#map canvas'));
+  }
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector('#map canvas'));
+  // Not one of the app's addresses: the network's to answer, as a 404 rather than the app.
+  const other = await page.goto('/no-such-page');
+  expect(other.status()).toBe(404);
+  await page.goto('/');
+  await page.waitForFunction(() => document.querySelector('#map canvas'));
+});
+
 test('the catalogue lists regions, and says which are not built yet', async () => {
   await page.click('#packsBtn');
   await expect(page.locator('#packsList .pack')).toHaveCount(25);
