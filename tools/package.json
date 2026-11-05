@@ -1,0 +1,10 @@
+{
+  "name": "uwumaps-pack-tools",
+  "private": true,
+  "type": "module",
+  "description": "Builds uwuMaps' offline packs. Run by .github/workflows/offline-packs.yml.",
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "pmtiles": "4.5.0"
+  }
+}

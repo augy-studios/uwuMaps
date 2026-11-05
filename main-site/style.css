@@ -1,42 +1,834 @@
+/* uwuMaps. The theme section is docs/uwuapps-theme.md, the tray docs/edge-tray-spec.md and the bar at
+   the top docs/update-bar-spec.md. No hex values below the token blocks: everything has to read in all
+   14 combinations of swatch and mode. */
+
+/* ---- base ---- */
 * {
   padding: 0;
   margin: 0;
   box-sizing: border-box;
-  font-family: "Jua", sans-serif;
-
-  /* Chrome and Opera */
-  user-select: none;
-
-  /* Safari */
+  font-family: "Jua", "Segoe UI", sans-serif;
   -webkit-user-select: none;
-
-  /* Konqueror HTML */
-  -khtml-user-select: none;
-
-  /* Firefox */
-  -moz-user-select: none;
-
-  /* Internet Explorer/Edge */
-  -ms-user-select: none;
+  user-select: none;
 }
 
-:link {
-  color: #6f6;
+html, body { height: 100%; }
+input, textarea { user-select: text; -webkit-user-select: text; }
+
+:link, :visited { color: var(--brand-ink); }
+a:hover { text-decoration: none; }
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+button:disabled { cursor: not-allowed; opacity: 0.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
-:visited {
-  color: #66f;
+/* ---- brand colour tokens (7 swatches) ---- */
+:root,
+:root[data-color-theme="classic"] {
+  --brand: #ccffcc;
+  --brand-rgb: 204, 255, 204;
+}
+:root[data-color-theme="not-green-1"] { --brand: #ffcccc; --brand-rgb: 255, 204, 204; }
+:root[data-color-theme="not-green-2"] { --brand: #ccccff; --brand-rgb: 204, 204, 255; }
+:root[data-color-theme="not-green-3"] { --brand: #ffffcc; --brand-rgb: 255, 255, 204; }
+:root[data-color-theme="not-green-4"] { --brand: #ffccff; --brand-rgb: 255, 204, 255; }
+:root[data-color-theme="not-green-5"] { --brand: #ccffff; --brand-rgb: 204, 255, 255; }
+:root[data-color-theme="really-light-green"] { --brand: #ffffff; --brand-rgb: 255, 255, 255; }
+
+/* ---- light / dark surface tokens ---- */
+:root,
+:root[data-mode="light"] {
+  --bg: #eef2f0;
+  --surface: rgba(255, 255, 255, 0.55);
+  --surface-strong: rgba(255, 255, 255, 0.78);
+  --surface-border: rgba(255, 255, 255, 0.65);
+  --ink: #121815;
+  --muted: #5b665f;
+  --shadow: 0 10px 30px rgba(20, 40, 30, 0.10);
+  --brand-ink: #1f6b3d;
+  --ok: #0f7234;
+  --warn: #a24b08;
+  --busy: #627288;
+  --error: #b91c1c;
 }
 
+:root[data-mode="dark"] {
+  --bg: #0c100e;
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-strong: rgba(255, 255, 255, 0.11);
+  --surface-border: rgba(255, 255, 255, 0.14);
+  --ink: #eef2ef;
+  --muted: #9aa7a0;
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+  --brand-ink: #bff5cf;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --busy: #94a3b8;
+  --error: #fa9696;
+}
+
+/* Same in both modes: brand tints are pale whatever the mode. */
 :root {
-  --brand: #99ff99;
-  --bg: #f7faf8;
-  --card: #ffffff;
-  --ink: #0f1721;
-  --muted: #667085;
-  --ring: rgba(153, 255, 153, 0.5);
-  --ok: #16a34a;
-  --warn: #ea580c;
-  --busy: #b91c1c;
+  --on-brand: #121815;
+  /* Brand-derived fills. Any surface that tracked the brand swatch before
+     still tracks it, in both modes. Text on these is always --on-brand. */
+  --brand-fill: color-mix(in srgb, var(--brand) 55%, var(--surface-strong));
+  --brand-fill-strong: color-mix(in srgb, var(--brand) 75%, var(--surface-strong));
+  /* Secondary text on --surface-strong. Plain --muted only reaches 3.6:1
+     there in dark mode, since the strong surface lightens the backdrop. */
+  --muted-strong: color-mix(in srgb, var(--ink) 70%, transparent);
+
+  /* The Edge Tray */
+  --glass-btn: 44px;
+  --edge: max(16px, calc(env(safe-area-inset-right) + 16px));
+  --banner-h: 0px;
+  --tray-top: max(calc(var(--banner-h, 0px) + 14px), calc(env(safe-area-inset-top) + 14px));
+  --tray-time: 0.34s;
+  --tray-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --accent-fill: var(--brand-fill);
+  --on-accent: var(--on-brand);
+  /* What a floating panel over the map sits on, since --surface alone is nearly clear in dark mode. */
+  --panel: color-mix(in srgb, var(--bg) 82%, transparent);
 }
 
+/* flat, static colour derived from theme, no gradients */
+body {
+  background-color: color-mix(in srgb, var(--brand) 10%, var(--bg));
+  color: var(--ink);
+  min-height: 100vh;
+  overflow: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ---- glass primitive ---- */
+.glass {
+  background: var(--surface);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--surface-border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+
+/* ---- icon button (theme trigger, modal close) ---- */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 14px;
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+  color: var(--ink);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.icon-btn:hover { transform: translateY(-1px); }
+.icon-btn svg { width: 20px; height: 20px; display: block; }
+.icon-btn.small { width: 34px; height: 34px; }
+.icon-btn.small svg { width: 16px; height: 16px; }
+[data-icon] { display: inline-flex; }
+
+/* ---- modal shell ---- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Above the tray (800) and the top bar (850), as the tray's stacking order asks. */
+  z-index: 900;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(10, 15, 12, 0.35);
+  padding: 12px;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.2s ease, visibility 0s linear 0s;
+}
+.modal-backdrop.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+
+@media (min-width: 640px) {
+  .modal-backdrop { align-items: center; }
+}
+
+.modal {
+  width: 100%;
+  max-width: 420px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease;
+}
+.modal-backdrop.hidden .modal {
+  opacity: 0;
+  transform: translateY(14px) scale(0.97);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-head h2 { font-size: 1.1rem; color: var(--brand-ink); }
+
+/* Section labels inside the modal: "Mode", "Brand colour". */
+.modal-section-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+body.modal-open { overflow: hidden; }
+
+/* ---- mode toggle ---- */
+.mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+.mode-toggle.three { grid-template-columns: repeat(3, 1fr); }
+.mode-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: var(--muted-strong);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mode-btn svg { width: 16px; height: 16px; }
+.mode-btn.active {
+  background: var(--brand-fill);
+  color: var(--on-brand);
+}
+
+/* Time based mode. Light and dark stay side by side and the third spans the
+   row beneath them: two equal columns would put the longer label in a box too
+   narrow to read at 320px, and the full width row also signals this is a
+   different kind of choice, a rule for picking a mode rather than a mode. */
+.mode-btn-wide { grid-column: 1 / -1; }
+.mode-note {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* ---- swatch grid ---- */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  font-size: 0.78rem;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+/* Ringed in its own colour, plus a containment ring. On a light modal the
+   pale swatches reach only 1:1 against the surface on their own, so the
+   outer ring is what actually carries the active state, at 3.4:1. */
+.swatch.active {
+  border-color: var(--swatch-color);
+  box-shadow:
+    0 0 0 2px var(--swatch-color),
+    0 0 0 3px color-mix(in srgb, var(--ink) 50%, transparent);
+}
+.swatch-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--swatch-color);
+  border: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  flex-shrink: 0;
+}
+
+/* ---- the bar at the very top: one bar, one state, offline before update ---- */
+.update-notice {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 850; /* above the tray, below modals */
+  /* Tinted over the page colour, since a see-through bar over a map wouldn't read. */
+  background: color-mix(in srgb, var(--brand) 14%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  color: var(--ink);
+  font-size: 0.875rem;
+}
+.update-notice-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+  /* Under the notch on a phone, where the bar is the topmost thing on screen. */
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+.update-notice p { flex: 1 1 auto; min-width: 0; }
+.update-notice .btn { flex: none; padding: 6px 12px; }
+
+/* ---- buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+  color: var(--ink);
+  font-size: 0.9rem;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--brand-fill); color: var(--on-brand); }
+.btn-primary:hover { background: var(--brand-fill-strong); }
+.btn-quiet { background: transparent; border-color: color-mix(in srgb, var(--ink) 25%, transparent); }
+.btn-danger { background: color-mix(in srgb, var(--error) 14%, transparent); color: var(--error); }
+.btn:focus-visible, .icon-btn:focus-visible, .mode-btn:focus-visible, .swatch:focus-visible, .field:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grow { flex: 1 1 0; min-width: 0; }
+.muted { color: var(--muted-strong); font-size: 0.85rem; }
+
+.field {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  background: var(--surface-strong);
+  color: var(--ink);
+  font-size: 1rem;
+  outline: none;
+}
+.field::placeholder, #searchInput::placeholder { color: var(--muted-strong); opacity: 1; }
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--brand-fill-strong);
+  color: var(--on-brand);
+}
+
+/* ---- the map ---- */
+#mapShell {
+  position: fixed;
+  inset: 0;
+  top: var(--banner-h, 0px);
+  transition: top 0.2s ease;
+}
+#map { position: absolute; inset: 0; background: color-mix(in srgb, var(--brand) 10%, var(--bg)); }
+
+.maplibregl-ctrl-bottom-right { margin-right: calc(var(--edge) - 10px); margin-bottom: 8px; }
+.maplibregl-ctrl-group {
+  background: var(--panel) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow) !important;
+}
+.maplibregl-ctrl-group button { width: 38px !important; height: 38px !important; }
+:root[data-mode="dark"] .maplibregl-ctrl-group button span { filter: invert(1); }
+.maplibregl-ctrl-attrib { font-size: 0.7rem; }
+.maplibregl-ctrl-attrib.maplibregl-compact { background: var(--panel) !important; color: var(--ink); }
+.maplibregl-ctrl-attrib a { color: var(--ink) !important; }
+:root[data-mode="dark"] .maplibregl-ctrl-attrib-button { filter: invert(1); }
+
+.marker-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--brand-ink);
+  border: 3px solid var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+.marker-pin { color: var(--error); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4)); }
+.marker-pin svg { width: 34px; height: 34px; display: block; fill: var(--surface-strong); }
+.marker-you {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--busy);
+  border: 3px solid var(--surface-strong);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--busy) 28%, transparent);
+}
+
+/* ---- search at the top left ---- */
+.topbar {
+  position: fixed;
+  z-index: 700;
+  top: var(--tray-top);
+  left: max(12px, calc(env(safe-area-inset-left) + 12px));
+  width: min(360px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  transition: top 0.2s ease, width var(--tray-time) var(--tray-ease);
+}
+.topbar > * { pointer-events: auto; }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.brand img { width: 32px; height: 32px; border-radius: 50%; display: block; }
+.brand h1 { font-size: 1rem; font-weight: normal; color: var(--brand-ink); }
+.searchbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 44px;
+  background: var(--panel);
+  border-radius: 14px;
+}
+.searchbox-icon svg { width: 18px; height: 18px; color: var(--muted-strong); display: block; }
+#searchInput {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1rem;
+  outline: none;
+}
+/* Narrow screens keep the search clear of the open tray; collapsed, the tab sits beside it. */
+@media (max-width: 920px) {
+  body.tray-open .topbar { width: min(360px, calc(100vw - 24px - var(--glass-btn) - var(--edge) - 32px)); }
+  body:not(.tray-open) .topbar { width: min(360px, calc(100vw - 24px - 34px)); }
+}
+
+.suggestions {
+  list-style: none;
+  max-height: 46vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 4px;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+.suggestions.hidden { display: none; }
+.suggestions.inline {
+  max-height: 220px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  box-shadow: none;
+}
+.suggestions button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  text-align: left;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.suggestions button:hover, .suggestions button:focus-visible { background: var(--surface-strong); outline: none; }
+.suggestions svg { width: 18px; height: 18px; color: var(--brand-ink); flex: none; display: block; }
+.suggestions .s-name { display: block; font-size: 0.95rem; }
+.suggestions .s-sub { display: block; font-size: 0.78rem; color: var(--muted-strong); }
+.suggestions .s-empty { padding: 10px; font-size: 0.85rem; color: var(--muted-strong); }
+
+/* ---- panels over the map ---- */
+.sheet {
+  position: fixed;
+  z-index: 650;
+  left: max(12px, calc(env(safe-area-inset-left) + 12px));
+  bottom: max(12px, calc(env(safe-area-inset-bottom) + 12px));
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(62vh, calc(100vh - var(--banner-h, 0px) - 130px));
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  opacity: 1;
+  transform: translateY(0);
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease, visibility 0s linear 0s;
+}
+.sheet.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(14px);
+  transition: transform 0.18s ease, opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+/* The directions panel takes the space the search would, rather than hiding under it. */
+#directionsPanel { max-height: calc(100vh - var(--banner-h, 0px) - 40px); }
+body.directions-open .topbar { display: none; }
+@media (min-width: 921px) {
+  #directionsPanel { top: var(--tray-top); bottom: auto; }
+}
+
+.sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sheet-head h2 { font-size: 1.1rem; color: var(--brand-ink); font-weight: normal; overflow-wrap: anywhere; }
+
+.route-ends { display: flex; align-items: center; gap: 8px; }
+.route-fields { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.route-summary { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.route-summary strong { font-size: 1.3rem; font-weight: normal; }
+#routeResult.hidden { display: none; }
+.steps { list-style: none; margin-top: 10px; display: flex; flex-direction: column; }
+.steps li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 2px;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  font-size: 0.9rem;
+}
+.steps svg { width: 20px; height: 20px; flex: none; color: var(--brand-ink); display: block; }
+.steps .step-len { display: block; font-size: 0.78rem; color: var(--muted-strong); }
+
+/* ---- navigating ---- */
+.nav-hud { position: fixed; inset: 0; z-index: 660; pointer-events: none; opacity: 1; transition: opacity 0.2s ease, visibility 0s linear 0s; }
+.nav-hud.hidden { opacity: 0; visibility: hidden; transition: opacity 0.18s ease, visibility 0s linear 0.18s; }
+.nav-hud > * { pointer-events: auto; }
+.nav-next {
+  position: absolute;
+  top: var(--tray-top);
+  left: max(12px, calc(env(safe-area-inset-left) + 12px));
+  width: min(420px, calc(100vw - 24px - var(--glass-btn) - var(--edge) - 32px));
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--brand-fill-strong);
+  color: var(--on-brand);
+}
+.nav-icon svg { width: 38px; height: 38px; display: block; }
+.nav-next strong { font-size: 1.3rem; font-weight: normal; }
+.nav-next p { font-size: 1rem; overflow-wrap: anywhere; }
+.nav-bottom {
+  position: absolute;
+  left: max(12px, calc(env(safe-area-inset-left) + 12px));
+  bottom: max(12px, calc(env(safe-area-inset-bottom) + 12px));
+  width: min(420px, calc(100vw - 24px));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--panel);
+}
+.nav-eta { display: flex; flex-direction: column; }
+.nav-eta strong { font-size: 1.2rem; font-weight: normal; }
+body.navigating .topbar { display: none; }
+
+/* ---- lists in the modals ---- */
+.pack-list, .saved-list { display: flex; flex-direction: column; gap: 8px; }
+.pack-group { font-size: 0.85rem; color: var(--muted-strong); margin-top: 6px; }
+.pack, .saved-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+}
+.pack-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pack-name { font-size: 0.95rem; overflow-wrap: anywhere; }
+.pack-sub { font-size: 0.78rem; color: var(--muted-strong); }
+.pack progress {
+  width: 100%;
+  height: 8px;
+  border: none;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  accent-color: var(--brand-ink);
+}
+.pack progress::-webkit-progress-bar { background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.pack progress::-webkit-progress-value { background: var(--brand-ink); }
+.pack progress::-moz-progress-bar { background: var(--brand-ink); }
+.saved-item { flex-direction: row; align-items: center; justify-content: space-between; }
+.saved-open { flex: 1 1 0; min-width: 0; text-align: left; font-size: 0.95rem; overflow-wrap: anywhere; }
+.empty-note { font-size: 0.85rem; color: var(--muted-strong); padding: 4px 0; }
+.code-big { font-size: 1.6rem; letter-spacing: 0.12em; text-align: center; color: var(--brand-ink); user-select: text; -webkit-user-select: text; }
+.share-what { font-size: 0.95rem; overflow-wrap: anywhere; }
+.share-map { width: 100%; height: auto; border-radius: 12px; display: block; }
+.share-map.hidden { display: none; }
+/* A QR code has to be dark on light whatever the theme, or scanners won't read it. */
+.qr-wrap { display: flex; justify-content: center; }
+.qr-wrap svg { width: min(100%, 260px); height: auto; display: block; border-radius: 12px; }
+.status-line { font-size: 0.85rem; }
+.status-line.error { color: var(--error); }
+.status-line.ok { color: var(--ok); }
+
+/* ---- the layers sheet ---- */
+.layer-list { display: flex; flex-direction: column; gap: 4px; }
+.layer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg);
+  transition: transform 0.18s ease;
+}
+.switch:checked { background: var(--brand-ink); }
+.switch:checked::after { transform: translateX(18px); }
+.switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ---- a station's train doors ---- */
+.doors { font-size: 0.88rem; }
+.doors summary { cursor: pointer; color: var(--brand-ink); padding: 2px 0; }
+.door-dir { margin-top: 8px; }
+.door-list { list-style: none; color: var(--muted-strong); }
+.list-field { width: 110px; flex: none; padding: 6px 8px; font-size: 0.85rem; }
+#placeLinks[hidden] { display: none; }
+a.btn { text-decoration: none; color: var(--ink); }
+
+/* ---- toast ---- */
+.toast {
+  position: fixed;
+  z-index: 950;
+  left: 50%;
+  bottom: max(20px, calc(env(safe-area-inset-bottom) + 20px));
+  transform: translateX(-50%);
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--brand-fill-strong);
+  color: var(--on-brand);
+  box-shadow: var(--shadow);
+  font-size: 0.9rem;
+  opacity: 1;
+  transition: opacity 0.18s ease, visibility 0s linear 0s;
+}
+.toast.error { background: color-mix(in srgb, var(--error) 18%, var(--bg)); color: var(--error); }
+.toast.hidden { opacity: 0; visibility: hidden; transition: opacity 0.18s ease, visibility 0s linear 0.18s; }
+
+/* ---- the Edge Tray ---- */
+/* Fixed top right. Lets clicks through except on its children. */
+.hud-right {
+  position: fixed;
+  z-index: 800; /* above content, below modals and any top banner */
+  top: var(--tray-top);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+  transition: top 0.2s ease; /* glides when a top banner comes or goes */
+}
+.hud-right > * { pointer-events: auto; }
+
+/* The tray: tab + column. Collapsed, the whole thing shifts right until only
+   the tab is left, flush with the edge. */
+.tray {
+  --tray-shift: calc(var(--glass-btn) + 8px + var(--edge));
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  transition: transform var(--tray-time) var(--tray-ease);
+}
+.tray.collapsed { transform: translateX(var(--tray-shift)); }
+
+.tray-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: var(--glass-btn);
+  padding: 0;
+  border-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-radius var(--tray-time) var(--tray-ease);
+}
+.tray-tab svg { width: 16px; height: 16px; transition: transform var(--tray-time) var(--tray-ease); }
+/* At the edge it is a tab: flat on the side the screen cuts off. */
+.tray.collapsed .tray-tab { border-radius: 12px 0 0 12px; border-right: none; }
+.tray.collapsed .tray-tab svg { transform: rotate(180deg); }
+
+.tray-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-right: var(--edge);
+  max-height: calc(100dvh - var(--tray-top) - 16px);
+}
+
+/* Separates the map's places from the actions on the view. */
+.tray-rule {
+  width: 24px;
+  height: 1px;
+  margin: 2px 0;
+  background: color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+/* The buttons. */
+.glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--glass-btn);
+  height: var(--glass-btn);
+  padding: 0;
+  border-radius: 14px;
+  background: var(--panel);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.glass-btn:hover { transform: translateY(-1px); background: var(--surface-strong); }
+.glass-btn svg { width: 22px; height: 22px; display: block; }
+
+/* The buttons unroll: each fades in, slides back from the edge and grows, 18 ms after
+   the one above it. They move by `translate` and `scale`, leaving `transform` to the
+   hover lift, so the list repeats the hover transitions. After .glass-btn, so it wins. */
+.tray-buttons > * {
+  transition:
+    opacity calc(var(--tray-time) * 0.8) ease,
+    translate var(--tray-time) var(--tray-ease),
+    scale var(--tray-time) var(--tray-ease),
+    transform 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+  /* Only opening is staggered: the delay comes from the state being entered. */
+  transition-delay: calc(var(--i, 0) * 18ms), calc(var(--i, 0) * 18ms), calc(var(--i, 0) * 18ms), 0s, 0s, 0s;
+}
+.tray-buttons > :nth-child(2) { --i: 1; }
+.tray-buttons > :nth-child(3) { --i: 2; }
+.tray-buttons > :nth-child(4) { --i: 3; }
+.tray-buttons > :nth-child(5) { --i: 4; }
+.tray-buttons > :nth-child(6) { --i: 5; }
+.tray-buttons > :nth-child(7) { --i: 6; }
+.tray-buttons > :nth-child(8) { --i: 7; }
+.tray.collapsed .tray-buttons > * {
+  opacity: 0;
+  translate: 12px 0; /* towards the edge it leaves by */
+  scale: 0.85;
+  transition-delay: 0s; /* collapsing, they all go at once */
+}
+
+/* A switched-on control, and the view on screen. */
+.glass-btn[aria-pressed="true"],
+.glass-btn[aria-pressed="true"]:hover,
+.glass-btn[aria-selected="true"],
+.glass-btn[aria-selected="true"]:hover {
+  background: var(--accent-fill);
+  color: var(--on-accent);
+}
+
+/* Keyboard focus must be visible on glass. */
+.tray-tab:focus-visible,
+.glass-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* A returning person who left it collapsed sees no slide on load. */
+.tray-start-collapsed .tray { transform: translateX(var(--tray-shift)); transition: none; }
+.tray-start-collapsed .tray-buttons > * { opacity: 0; translate: 12px 0; scale: 0.85; transition: none; }
+.tray-start-collapsed .tray-tab { border-radius: 12px 0 0 12px; border-right: none; }
+.tray-start-collapsed .tray-tab svg { transform: rotate(180deg); }
+
+@media (max-width: 480px) {
+  :root {
+    --glass-btn: 40px;
+    --edge: max(10px, calc(env(safe-area-inset-right) + 10px));
+  }
+  .swatch-grid { grid-template-columns: 1fr; }
+  .sheet, .modal { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-right, .tray, .tray-tab, .tray-tab svg, .tray-buttons > *, .glass-btn, .topbar {
+    transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+  }
+}

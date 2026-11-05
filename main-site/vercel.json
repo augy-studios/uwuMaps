@@ -3,8 +3,30 @@
     "version": 2,
     "cleanUrls": true,
     "regions": ["sin1"],
-    "rewrites": [{
-        "source": "/",
-        "destination": "/"
-    }]
+    "functions": {
+        "api/mappack.js": { "maxDuration": 60 },
+        "api/share-map.js": { "maxDuration": 30 }
+    },
+    "rewrites": [
+        { "source": "/go/:id", "destination": "/api/share-page?id=:id" },
+        { "source": "/trip/:id", "destination": "/api/share-page?id=:id" },
+        { "source": "/eta/:id", "destination": "/api/share-page?id=:id" },
+        { "source": "/list/:id", "destination": "/api/share-page?id=:id" }
+    ],
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                { "key": "X-Content-Type-Options", "value": "nosniff" },
+                { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+                { "key": "Permissions-Policy", "value": "geolocation=(self), screen-wake-lock=(self)" }
+            ]
+        },
+        {
+            "source": "/sw.js",
+            "headers": [
+                { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+            ]
+        }
+    ]
 }

@@ -1,16 +1,30 @@
 {
     "name": "uwuMaps by UwU Apps",
     "short_name": "uwuMaps",
-    "description": "A simple uwumaps app; view live uwumaps at a glance!",
+    "description": "Explore cities in colourful 3D and find your way on foot, by bike or by car.",
     "icons": [{
             "src": "MAP-192.png",
             "type": "image/png",
-            "sizes": "192x192"
+            "sizes": "192x192",
+            "purpose": "any"
         },
         {
             "src": "MAP-512.png",
             "type": "image/png",
-            "sizes": "512x512"
+            "sizes": "512x512",
+            "purpose": "any"
+        },
+        {
+            "src": "MAP-192.png",
+            "type": "image/png",
+            "sizes": "192x192",
+            "purpose": "maskable"
+        },
+        {
+            "src": "MAP-512.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "maskable"
         }
     ],
     "screenshots": [{
@@ -37,8 +51,8 @@
     "scope": "/",
     "lang": "en",
     "categories": [
-        "entertainment",
-        "lifestyle",
+        "navigation",
+        "travel",
         "utilities"
     ]
 }
