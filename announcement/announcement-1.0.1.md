@@ -1,4 +1,4 @@
-✨NEW✨ uwuMaps 1.0.1 for Android
+✨UPDATE✨ uwuMaps 1.0.1
 maps.uwuapps.org
 
 New:

@@ -38,7 +38,8 @@ versionName 1.0.1 and versionCode 2. A phone only takes a higher versionCode.
 6. Drag in the APK from `release\<version>\`, into the box that says **Attach binaries by dropping them here
    or selecting them**. Wait for it to finish uploading.
 7. Tick **Set as the latest release**, then **Publish release**.
-8. Post `announcement/announcement-<version>.md`, from a code block so the emoji and line breaks survive.
+8. Post `announcement/announcement-<version>.md`, from a code block so the emoji and line breaks survive. Its
+   header is `✨UPDATE✨ uwuMaps <version>`. Only 1.0.0, the first release, said `✨NEW✨`.
 
 `https://github.com/augy-studios/uwuMaps/releases/latest` always points at the newest one: a good link to
 share. The `offline-packs` release is a pre-release, so it's never that one, and the updater skips it.
