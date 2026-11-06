@@ -64,6 +64,9 @@ class RouteResult {
   /// [lon, lat] pairs.
   final List<List<double>> coords;
   final List<RouteStep> steps;
+
+  /// The same route, found over the network rather than from a saved map.
+  RouteResult fromOnline() => RouteResult(source: 'online', mode: mode, distance: distance, duration: duration, coords: coords, steps: steps);
 }
 
 /// The icon for a step of a route.

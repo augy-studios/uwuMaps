@@ -4,7 +4,7 @@
 // A new service worker never activates on its own. It downloads, it installs and it waits, and the
 // only thing that promotes it is somebody pressing Reload.
 
-import { escapeHtml } from "./ui.js";
+import { escapeHtml, isOnline, toast } from "./ui.js";
 import { publishBannerHeight } from "./tray.js";
 
 const SW_URL = "/sw.js";
@@ -54,6 +54,38 @@ function render() {
   }
   if (!existing) document.body.prepend(bar);
   publishBannerHeight(bar);
+}
+
+// The tray's Check for updates. The same bar says so if there's a new version, and otherwise this does.
+export async function checkForUpdates() {
+  if (!isOnline()) {
+    toast("Checking for updates needs a connection", { error: true });
+    return;
+  }
+  if (!registration) {
+    toast(`Updates for ${SITE_NAME} aren't available in this browser`, { error: true });
+    return;
+  }
+  try {
+    await registration.update();
+    const installing = registration.installing;
+    if (installing) {
+      await new Promise((resolve) => {
+        const look = () => {
+          if (installing.state === "installed" || installing.state === "redundant") resolve();
+        };
+        installing.addEventListener("statechange", look);
+        look();
+      });
+    }
+  } catch {
+    toast("Couldn't check for updates. Try again in a moment.", { error: true });
+    return;
+  }
+  waitingWorker = registration.waiting || waitingWorker;
+  dismissed = false;
+  if (waitingWorker) render();
+  else toast(`You have the newest version of ${SITE_NAME}`);
 }
 
 function watchForUpdate() {

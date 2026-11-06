@@ -93,7 +93,7 @@ test('with a pack, directions come from the offline router, the same as the webs
   expect(camera.bearing).toBeCloseTo(0, 1);
 
   await button(page, 'Walk').click();
-  await expect.poll(async () => (await state(page)).route?.distance, { timeout: 30000 }).toBe(4889);
+  await expect.poll(async () => (await state(page)).route?.distance, { timeout: 30000 }).toBe(4896);
   await button(page, 'Cycle').click();
   await expect.poll(async () => (await state(page)).route?.distance, { timeout: 30000 }).toBe(5650);
   expect((await state(page)).mode).toBe('bike');
@@ -103,6 +103,30 @@ test('with a pack, directions come from the offline router, the same as the webs
   await expect.poll(async () => (await state(page)).from).toBe('Marina');
   await expect.poll(async () => (await state(page)).to).toBe('My location');
   await expect.poll(async () => (await state(page)).route?.source, { timeout: 30000 }).toBe('offline');
+  expect(errors).toEqual([]);
+});
+
+test('walking in Singapore with no saved map reads our graph from the release, a little at a time', async ({ page }) => {
+  const errors = collectErrors(page);
+  const ranges = [];
+  page.on('request', (r) => {
+    if (r.url().includes('.route.')) ranges.push(r.headers().range);
+  });
+  await openApp(page);
+  await openPlace(page, place);
+  await button(page, 'Directions').last().click();
+  await button(page, 'Walk').click();
+  // The same walk as from a saved map, but it says online, as it is.
+  await expect.poll(async () => (await state(page)).route?.distance, { timeout: 60000 }).toBe(4896);
+  expect((await state(page)).route.source).toBe('online');
+  expect((await state(page)).installed).not.toContain('singapore');
+  // Only the pieces of the graph this walk passes through, not the 9 MB file.
+  expect(ranges.length).toBeGreaterThan(0);
+  const bytes = ranges.reduce((n, r) => {
+    const [, from, to] = /^bytes=(\d+)-(\d+)$/.exec(r);
+    return n + Number(to) - Number(from) + 1;
+  }, 0);
+  expect(bytes).toBeLessThan(5 * 1024 * 1024);
   expect(errors).toEqual([]);
 });
 

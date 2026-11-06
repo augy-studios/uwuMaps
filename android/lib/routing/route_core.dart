@@ -31,7 +31,7 @@ class TravelMode {
 const Map<String, TravelMode> travelModes = {
   'car': TravelMode(1, 33, 15000),
   'bike': TravelMode(2, 6.5, 8000),
-  'foot': TravelMode(4, 1.5, 5000),
+  'foot': TravelMode(4, 1.75, 5000),
 };
 
 const int _classFerry = 13;
@@ -42,6 +42,9 @@ const List<double> _footKmh = [0, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.5, 4.5, 4
 // How much less pleasant than its time a road is: what route quality trades against time.
 const List<double> _bikeCost = [99, 2.2, 1.7, 1.4, 1.15, 1, 1, 1.05, 1.1, 1, 1.1, 0.8, 3, 1];
 const List<double> _footCost = [99, 1.8, 1.4, 1.2, 1.05, 1, 1, 1, 1, 0.95, 0.9, 1.05, 1.2, 1];
+// Out of the sun and the rain is worth a small detour. On an edge, this bit says it's under cover.
+const double _shelterCost = 0.85;
+const int _shelterBit = 8;
 
 // Search harder than exact, for speed: the route found is within a few percent of the best.
 const double _greed = 1.2;
@@ -434,7 +437,7 @@ double _edgeCost(Chunk chunk, int e, String modeName, [double fraction = 1]) {
   final secs = _edgeSeconds(chunk, e, modeName, fraction);
   final cls = chunk.cls[e] & 15;
   if (modeName == 'bike') return secs * _bikeCost[cls];
-  if (modeName == 'foot') return secs * _footCost[cls];
+  if (modeName == 'foot') return secs * _footCost[cls] * (chunk.bits[e] & _shelterBit != 0 ? _shelterCost : 1);
   return secs;
 }
 

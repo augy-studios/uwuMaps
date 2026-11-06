@@ -12,6 +12,7 @@
 import qrcode from "/vendor/qrcode/qrcode.mjs";
 import { CODE_LENGTH, Guest, Host, generateCode, isValidCode, normaliseCode } from "./p2p.js";
 import { savedPlaces } from "./places.js";
+import { canScan, scanCode } from "./scanner.js";
 import { $, closeModal, escapeHtml, hydrateIcons, isOnline, openModal, roundCoord } from "./ui.js";
 
 // Past about this long a link makes a QR code too dense for a phone's camera to read reliably.
@@ -23,6 +24,10 @@ let retried = false;
 let receiveHandler = () => {};
 export const onNearbyReceive = (fn) => {
   receiveHandler = fn;
+};
+let scanHandler = () => false;
+export const onNearbyScan = (fn) => {
+  scanHandler = fn;
 };
 
 /* ---- links that hold everything ---- */
@@ -157,7 +162,7 @@ function sendSection(payload) {
   const fits = link.length <= QR_MAX;
   return `
     <p class="modal-section-label">Send with a QR code, no connection needed</p>
-    ${fits ? `<div class="qr-wrap">${qrSvg(link)}</div><p class="muted">Scan this with the other device's camera. It opens with no connection if uwuMaps has been opened there before.</p>`
+    ${fits ? `<div class="qr-wrap">${qrSvg(link)}</div><p class="muted">Scan this with the other device's camera, or with Scan a code in uwuMaps. It opens with no connection if uwuMaps has been opened there before.</p>`
     : `<p class="muted">This is too big for a QR code. Send it by code instead.</p>`}
     <p class="modal-section-label">Or send by code</p>
     <p class="muted">Both devices need a connection to start, and to be on the same wifi or a hotspot from one of them.</p>
@@ -181,11 +186,22 @@ export function openNearby(payload, { join: joinCode } = {}) {
     ${joinCode ? receiveSection(normaliseCode(joinCode)) : ""}
     ${sending ? sendSection(sending) : ""}
     ${joinCode ? "" : receiveSection()}
+    ${canScan() ? `<button class="btn" type="button" id="nearbyScan"><span data-icon="qr"></span>Scan a code</button>` : ""}
     <p id="nearbyStatus" class="status-line" role="status"></p>`;
   hydrateIcons(body);
   $("#nearbyTitle").textContent = sending && !joinCode ? "Send to a device nearby" : "Receive from a device nearby";
   $("#nearbyStart")?.addEventListener("click", () => startHosting(sending));
   $("#nearbyJoin").addEventListener("click", () => join($("#nearbyCode").value));
+  $("#nearbyScan")?.addEventListener("click", async () => {
+    const scanned = await scanCode();
+    if (scanned == null) return;
+    // Closed first, as what the link opens can be this very sheet.
+    closeModal("nearbyModal");
+    if (!scanHandler(scanned)) {
+      openModal("nearbyModal");
+      setStatus("That code isn't a uwuMaps link.", "error");
+    }
+  });
   openModal("nearbyModal");
   if (joinCode) join(joinCode);
 }

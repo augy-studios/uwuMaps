@@ -180,7 +180,7 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
-    if (['node_modules', 'vendor', '.git', '.fixture', 'docs', 'images', 'map', 'data', 'test-results'].includes(name)) continue;
+    if (['node_modules', 'vendor', '.git', '.fixture', 'docs', 'images', 'map', 'data', 'test-results', 'announcement', 'release'].includes(name)) continue;
     const path = join(dir, name);
     if (statSync(path).isDirectory()) walk(path, out);
     else if (/\.(js|mjs|css|html|json|sql|md|yml)$/.test(name) && !/package-lock|^404|LICENSE|CODE_OF_CONDUCT/.test(name)) out.push(path);

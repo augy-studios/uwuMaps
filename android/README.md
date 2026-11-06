@@ -14,7 +14,7 @@ new APK.
 | Folder | What | The website's |
 |---|---|---|
 | `lib/map/` | The style, the map, and a small server on 127.0.0.1 that hands MapLibre its tiles, icons and fonts | `js/map.js`, `js/buildings.js` |
-| `lib/packs/` | Offline packs, read straight from the GitHub release with range requests | `js/packs.js`, `js/pack-read.js`, `js/pack-list.js` |
+| `lib/packs/` | Offline packs, read straight from the GitHub release with range requests, including for walking in Singapore with no saved map (`pack_published.dart`) | `js/packs.js`, `js/pack-read.js`, `js/pack-list.js` |
 | `lib/routing/` | The offline router, in its own isolate | `js/route-core.js`, `js/route-client.js` |
 | `lib/search/` | Search: saved, transport, packs, then Photon | `js/search.js` |
 | `lib/transit/` | Public transport, live vehicles, a station's doors | `js/transit.js`, `js/mrt-doors.js` |

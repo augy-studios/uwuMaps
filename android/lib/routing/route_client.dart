@@ -1,5 +1,8 @@
 // Getting a route: from a saved pack when one covers both ends, so it works the same with or without a
 // connection, and otherwise from the public OSRM servers (the same ones SG Bus Timings uses).
+//
+// One exception. Walking in Singapore always uses our own graph, as only that knows about void decks
+// (tools/packs/lib/void-decks.mjs). With no saved map, it's read from the published pack as it's needed.
 
 import 'dart:async';
 
@@ -7,6 +10,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/models.dart';
 import '../core/net.dart';
+import '../packs/pack_list.dart';
 import '../packs/pack_store.dart';
 import 'route_core.dart';
 import 'route_worker.dart';
@@ -18,6 +22,10 @@ const Map<String, String> _osrm = {
 };
 
 const Map<String, int> _modifierAngle = {'sharp left': -140, 'left': -90, 'slight left': -35, 'straight': 0, 'slight right': 35, 'right': 90, 'sharp right': 140, 'uturn': 180};
+
+const String _walkPack = 'singapore';
+// A slow connection on its first walk goes to OSRM rather than keeping somebody waiting.
+const Duration _publishedWait = Duration(seconds: 12);
 
 class NoRoute implements Exception {
   const NoRoute(this.message);
@@ -89,6 +97,22 @@ Future<RouteResult?> _onlineRoute(LatLon from, LatLon to, String mode) async {
   return RouteResult(source: 'online', mode: mode, distance: (r['distance'] as num).round(), duration: (r['duration'] as num).round(), coords: coords, steps: steps);
 }
 
+Future<RouteResult?> _walkFromPublished(PackStore packs, LatLon from, LatLon to, String mode) async {
+  if (mode != 'foot') return null;
+  final b = packList.firstWhere((p) => p.id == _walkPack).bounds;
+  bool inside(LatLon p) => p.lon >= b[0] && p.lon <= b[2] && p.lat >= b[1] && p.lat <= b[3];
+  if (!inside(from) || !inside(to)) return null;
+  try {
+    final pack = await packs.published(_walkPack);
+    if (pack == null) return null;
+    final route = await RouteWorker.instance.findPublished(pack, from, to, mode).timeout(_publishedWait);
+    return route?.fromOnline();
+  } catch (err) {
+    debugPrint('Published map: $err');
+    return null;
+  }
+}
+
 /// Answers a route, or throws [NoRoute] with something worth reading.
 Future<RouteResult> getRoute(PackStore packs, LatLon from, LatLon to, String mode) async {
   final a = packs.packAt(from.lat, from.lon);
@@ -105,6 +129,8 @@ Future<RouteResult> getRoute(PackStore packs, LatLon from, LatLon to, String mod
     if (!Net.online.value) throw const NoRoute('No way there was found on the saved map.');
   }
   if (!Net.online.value) throw const NoRoute("You're offline. Save this area in Offline maps to get directions here.");
+  final walk = await _walkFromPublished(packs, from, to, mode);
+  if (walk != null) return walk;
   try {
     final route = await _onlineRoute(from, to, mode);
     if (route == null) throw const NoRoute('No way there was found.');

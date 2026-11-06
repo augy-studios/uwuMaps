@@ -3,9 +3,10 @@
 // pack, and the voice from the device's own speech engine.
 
 import { getRoute, NoRoute } from "./route-client.js";
-import { getMap, setYouMarker, showRoute, clearRoute } from "./map.js";
+import { getMap, showRoute, clearRoute } from "./map.js";
 import { stepIcon } from "./icons.js";
 import { $, formatClock, formatDistance, formatDuration, hydrateIcons, metresBetween, readJson, toast, writeJson } from "./ui.js";
+import { GLIDE_MS, cameraFollows, fix, navigationEnded, navigationStarted } from "./you.js";
 
 const VOICE_KEY = "uwumaps.navVoice";
 // Further off the line than this, a few fixes running, is off the route rather than a poor fix.
@@ -140,9 +141,9 @@ async function reroute(lat, lon) {
 function onPosition(pos) {
   if (!nav) return;
   const { latitude: lat, longitude: lon, heading } = pos.coords;
-  setYouMarker(lat, lon);
 
   const { route, along } = nav;
+  fix(lat, lon, { mps: pos.coords.speed, routeMode: route.mode });
   const here = locate(route.coords, along, nav.index, lat, lon);
   nav.index = here.index;
   nav.lastFix = { lat, lon, t: Date.now(), accuracy: pos.coords.accuracy };
@@ -172,7 +173,9 @@ function onPosition(pos) {
     nextPoint[1] - lat,
   ) * 180) / Math.PI;
   const bearing = Number.isFinite(heading) && heading !== null && pos.coords.speed > 1 ? heading : lineBearing;
-  getMap().easeTo({ center: [lon, lat], zoom: route.mode === "car" ? 17 : 18, pitch: 60, bearing, duration: 800, essential: false });
+  // Unless My location or the compass have the camera already. Dragged away, it's back with the next fix. In a
+  // straight line, as the dot glides, so the dot stays in the middle.
+  if (!cameraFollows()) getMap().easeTo({ center: [lon, lat], zoom: route.mode === "car" ? 17 : 18, pitch: 60, bearing, duration: GLIDE_MS, easing: (t) => t, essential: false });
   etaHooks.update();
 }
 
@@ -216,6 +219,7 @@ export function startNavigation(route, { from, to }) {
     wake: null,
   };
   useRoute(route);
+  navigationStarted();
   document.body.classList.add("navigating");
   $("#navHud").classList.remove("hidden");
   $("#navShareLabel").textContent = "Share ETA";
@@ -247,6 +251,7 @@ export function stopNavigation() {
   nav.wake?.release?.().catch?.(() => {});
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   nav = null;
+  navigationEnded();
   document.body.classList.remove("navigating");
   $("#navHud").classList.add("hidden");
   clearRoute();

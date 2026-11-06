@@ -42,6 +42,40 @@ export function archiveReader(id, build, archive) {
   };
 }
 
+// The same over a pack's published file, for when it isn't saved: asks /api/mappack for the 4 MiB pieces a read
+// falls in. A piece's address names its build and never changes, so the browser keeps them for next time.
+export function publishedReader(id, build, archive) {
+  const parts = new Map();
+
+  const part = (n) => {
+    if (!parts.has(n)) {
+      parts.set(n, fetch(`/api/mappack?id=${encodeURIComponent(id)}&archive=${archive}&part=${n}&v=${build}`).then(async (res) => {
+        if (!res.ok) throw new Error(`The ${id} map answered ${res.status}`);
+        return new Uint8Array(await res.arrayBuffer());
+      }).catch((err) => {
+        parts.delete(n);
+        throw err;
+      }));
+    }
+    return parts.get(n);
+  };
+
+  return async function read(offset, length) {
+    const out = new Uint8Array(length);
+    let done = 0;
+    while (done < length) {
+      const at = offset + done;
+      const n = Math.floor(at / PART_SIZE);
+      const from = at - n * PART_SIZE;
+      const piece = (await part(n)).subarray(from, from + length - done);
+      if (!piece.length) throw new Error(`Read past the end of the ${id} map`);
+      out.set(piece, done);
+      done += piece.length;
+    }
+    return out;
+  };
+}
+
 export async function readPackMeta(id) {
   try {
     const cache = await caches.open(packCacheName(id));

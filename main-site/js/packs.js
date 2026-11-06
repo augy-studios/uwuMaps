@@ -175,6 +175,16 @@ async function fetchCatalogue() {
   return catalogue;
 }
 
+// What's published, for walking with no saved map. Once a page view is enough, unless it comes back empty.
+let published = null;
+export function publishedPack(id) {
+  published ||= fetchCatalogue().then((all) => {
+    if (!all) published = null;
+    return all;
+  });
+  return published.then((all) => all?.[id] || null);
+}
+
 class StartAgain extends Error {}
 
 async function fetchPart(id, build, archive, n, signal) {

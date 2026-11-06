@@ -22,11 +22,12 @@
 // nodes are: first the ways, then only the nodes those ways use. Everything lives in typed arrays,
 // since a country has tens of millions of nodes and that many JavaScript objects would not fit.
 
-import { openSync, writeSync, closeSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { openSync, writeSync, closeSync, statSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { readPbf } from './lib/osm-pbf.mjs';
-import { classify, isMajor, placeKind, roadName, STREET_KIND } from './lib/osm-profile.mjs';
+import { CLASS, classify, isMajor, placeKind, roadName, STREET_KIND } from './lib/osm-profile.mjs';
+import { SINGAPORE, findLinks, fromXY, isClosedRoad, isGroundWay, isObstacle, isRoof, isVoidDeckBlock, readBlockList, sameNode, toXY } from './lib/void-decks.mjs';
 
 const LOCAL_ZOOM = 12;
 const MAJOR_ZOOM = 8;
@@ -49,6 +50,9 @@ const bounds = args.bounds ? args.bounds.split(',').map(Number) : [-180, -90, 18
 const inBounds = (lat, lon) => lon >= bounds[0] && lon <= bounds[2] && lat >= bounds[1] && lat <= bounds[3];
 
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
+
+// Whether this pack holds any of Singapore, whose void decks get links of their own (lib/void-decks.mjs).
+const holdsSingapore = bounds[0] < SINGAPORE[2] && bounds[2] > SINGAPORE[0] && bounds[1] < SINGAPORE[3] && bounds[3] > SINGAPORE[1];
 
 /* ---- growing typed arrays ---- */
 
@@ -98,6 +102,25 @@ function nameId(name) {
 }
 
 const restrictions = []; // { from, via, to, only }, way and node ids
+
+// What the void deck links need to know, as node ids until the second pass says where those are. An outline's
+// first node decides whether it's in Singapore, since a pack can reach well beyond it.
+const singaporeNodes = new Grow(Float64Array, 1 << 20);
+if (holdsSingapore) {
+  log('Finding Singapore');
+  readPbf(input, {
+    node(id, lat, lon) {
+      if (lon >= SINGAPORE[0] && lon <= SINGAPORE[2] && lat >= SINGAPORE[1] && lat <= SINGAPORE[3]) singaporeNodes.push(id);
+    },
+  }, undefined);
+}
+const singaporeNodeIds = singaporeNodes.done();
+const blockList = holdsSingapore ? readBlockList(JSON.parse(readFileSync(new URL('./data/hdb-blocks.json', import.meta.url), 'utf8'))) : null;
+const linkBlocks = []; // { refs, name }
+const linkRoofs = []; // refs
+const linkBuildings = []; // refs
+const linkObstacles = []; // refs
+const linkWays = []; // way indexes a link may join
 // Places that are areas or lines: found at the location of their first node.
 const wayPlaces = []; // { ref, name, alias, kind }
 const extraRefs = new Grow(Float64Array);
@@ -124,6 +147,23 @@ readPbf(input, {
     }
     if (refs.length < 2) return;
     const c = classify(tags);
+    if (holdsSingapore && indexOf(singaporeNodeIds, refs[0]) >= 0) {
+      const walkable = c && (c.fwd | c.back) & 4;
+      let kept = false;
+      if (walkable) {
+        if (isGroundWay(tags)) linkWays.push(wayIds.n);
+      } else if (tags.highway ? isClosedRoad(tags) : isObstacle(tags)) {
+        linkObstacles.push(refs);
+        kept = true;
+      }
+      if (tags.building && refs[0] === refs[refs.length - 1] && refs.length > 3) {
+        kept = true;
+        linkBuildings.push(refs);
+        if (isVoidDeckBlock(tags, blockList)) linkBlocks.push({ refs, name: tags['addr:housenumber'] ? `Blk ${tags['addr:housenumber']} void deck` : 'Void deck' });
+        else if (isRoof(tags)) linkRoofs.push(refs);
+      }
+      if (kept) for (const r of refs) extraRefs.push(r);
+    }
     if (!c) return;
     wayIds.push(id);
     wayStart.push(wayRefs.n);
@@ -148,7 +188,7 @@ readPbf(input, {
   },
 }, undefined);
 
-const wayCount = wayIds.n;
+let wayCount = wayIds.n;
 wayStart.push(wayRefs.n);
 log(`${wayCount} routable ways, ${wayRefs.n} node references, ${restrictions.length} turn restrictions`);
 
@@ -170,7 +210,7 @@ function sortedUnique(...arrays) {
   return all.subarray(0, w);
 }
 
-const needed = sortedUnique(wayRefs.done(), extraRefs.done());
+let needed = sortedUnique(wayRefs.done(), extraRefs.done());
 log(`${needed.length} nodes needed`);
 
 function indexOf(sorted, id) {
@@ -188,9 +228,9 @@ function indexOf(sorted, id) {
 
 /* ---- pass 2: where those nodes are, and the places that are nodes ---- */
 
-const lat6 = new Int32Array(needed.length);
-const lon6 = new Int32Array(needed.length);
-const have = new Uint8Array(needed.length);
+let lat6 = new Int32Array(needed.length);
+let lon6 = new Int32Array(needed.length);
+let have = new Uint8Array(needed.length);
 const places = []; // { lat, lon, name, alias, kind }
 
 log('Reading nodes');
@@ -222,6 +262,124 @@ for (const p of wayPlaces) {
 }
 wayPlaces.length = 0;
 log(`${places.length} named places`);
+
+/* ---- walking links through void decks, which OpenStreetMap doesn't have ---- */
+
+// Links are numbered after every real way, so the search file can leave them out.
+const firstLink = addWalkLinks();
+
+function addWalkLinks() {
+  if (!linkBlocks.length && !linkRoofs.length) return wayCount;
+  const xy = (i) => toXY(lat6[i] / 1e6, lon6[i] / 1e6);
+  const line = (refs) => {
+    const out = [];
+    for (const r of refs) {
+      const i = indexOf(needed, r);
+      if (i < 0 || !have[i]) return null;
+      out.push(xy(i));
+    }
+    return out;
+  };
+  const wayPoints = (w) => line(wayRefs.a.subarray(wayStart.a[w], wayStart.a[w + 1]));
+
+  // One array per outline, so a block's own walls can be told from its neighbours'.
+  const ringOf = new Map();
+  const ring = (refs) => {
+    if (!ringOf.has(refs)) ringOf.set(refs, line(refs));
+    return ringOf.get(refs);
+  };
+  const links = findLinks({
+    blocks: linkBlocks.map(({ refs, name }) => ({ ring: ring(refs), name })).filter((b) => b.ring),
+    roofs: linkRoofs.map((refs) => ({ ring: ring(refs) })).filter((b) => b.ring),
+    buildings: linkBuildings.map(ring).filter(Boolean),
+    obstacles: linkObstacles.map(line).filter(Boolean),
+    ways: linkWays.map((way) => ({ way, points: wayPoints(way) })).filter((w) => w.points),
+  });
+  log(`${links.length} walking links, from ${linkBlocks.length} HDB blocks and ${linkRoofs.length} roofs`);
+  if (!links.length) return wayCount;
+
+  // New nodes number on from the highest there is, which keeps the list sorted.
+  const nodes = [];
+  const firstNew = needed[needed.length - 1] + 1;
+  const newNode = (p) => {
+    nodes.push(p);
+    return firstNew + nodes.length - 1;
+  };
+
+  // Where each link end goes on the way it joins, unless a node's already there.
+  const insertions = new Map(); // way -> [{ seg, t, id }]
+  const joinNode = ({ way, seg, t, at }) => {
+    const s = wayStart.a[way] + seg;
+    const [ax, ay] = xy(indexOf(needed, wayRefs.a[s]));
+    const [bx, by] = xy(indexOf(needed, wayRefs.a[s + 1]));
+    const which = sameNode(t, Math.hypot(bx - ax, by - ay));
+    if (which >= 0) return wayRefs.a[s + which];
+    const id = newNode(at);
+    if (!insertions.has(way)) insertions.set(way, []);
+    insertions.get(way).push({ seg, t, id });
+    return id;
+  };
+  const made = links.map((link) => ({
+    link,
+    refs: [joinNode(link.from), newNode(link.points[1]), newNode(link.points[2]), joinNode(link.to)],
+  }));
+
+  // The ways again, with the new junctions in place.
+  for (const list of insertions.values()) list.sort((a, b) => a.seg - b.seg || a.t - b.t);
+  const refsBefore = wayRefs.done().slice();
+  const startBefore = wayStart.done().slice();
+  wayRefs.n = 0;
+  wayStart.n = 0;
+  for (let w = 0; w < wayCount; w++) {
+    wayStart.push(wayRefs.n);
+    const list = insertions.get(w);
+    let k = 0;
+    for (let i = startBefore[w]; i < startBefore[w + 1]; i++) {
+      wayRefs.push(refsBefore[i]);
+      while (list && k < list.length && list[k].seg === i - startBefore[w]) wayRefs.push(list[k++].id);
+    }
+  }
+
+  // The links, as ways of their own, on foot only.
+  const first = wayCount;
+  let nextWayId = wayIds.a[wayCount - 1] + 1;
+  for (const { link, refs } of made) {
+    wayIds.push(nextWayId++);
+    wayStart.push(wayRefs.n);
+    for (const r of refs) wayRefs.push(r);
+    wayCls.push(CLASS.footway);
+    wayBits.push(0);
+    wayKmh.push(15);
+    // A roof is really there, and a void deck is a good guess, so only a roof counts as being under cover.
+    const bits = link.sheltered ? 4 | 8 : 4;
+    wayFwd.push(bits);
+    wayBack.push(bits);
+    wayName.push(nameId(link.name));
+  }
+  wayCount = wayIds.n;
+  wayStart.push(wayRefs.n);
+
+  // The new nodes, on the end of the lists.
+  const before = needed.length;
+  const grown = before + nodes.length;
+  const widen = (a, Type) => {
+    const b = new Type(grown);
+    b.set(a);
+    return b;
+  };
+  needed = widen(needed, Float64Array);
+  lat6 = widen(lat6, Int32Array);
+  lon6 = widen(lon6, Int32Array);
+  have = widen(have, Uint8Array);
+  nodes.forEach((p, i) => {
+    const [lat, lon] = fromXY(p);
+    needed[before + i] = firstNew + i;
+    lat6[before + i] = Math.round(lat * 1e6);
+    lon6[before + i] = Math.round(lon * 1e6);
+    have[before + i] = 1;
+  });
+  return first;
+}
 
 /* ---- the junctions: a node where ways meet, or a way ends ---- */
 
@@ -643,6 +801,8 @@ function buildSearch() {
   // Streets: one per name per small area, located at the middle of one of their stretches.
   const seen = new Set();
   for (let e = 0; e < edgeCount; e++) {
+    // Nobody searches for a void deck.
+    if (edgeWay.a[e] >= firstLink) continue;
     const name = names[wayName.a[edgeWay.a[e]]];
     if (!name) continue;
     const n = vertexOrder[edgeFrom.a[e]];

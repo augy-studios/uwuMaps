@@ -93,9 +93,10 @@
                 <button class="glass-btn" id="savedBtn" type="button" aria-haspopup="dialog" aria-label="Saved places" title="Saved places"><span data-icon="bookmark"></span></button>
                 <button class="glass-btn" id="packsBtn" type="button" aria-haspopup="dialog" aria-label="Offline maps" title="Offline maps"><span data-icon="download"></span></button>
                 <span class="tray-rule" aria-hidden="true"></span>
-                <button class="glass-btn" id="locateBtn" type="button" aria-label="My location" title="My location"><span data-icon="locate"></span></button>
+                <button class="glass-btn" id="locateBtn" type="button" aria-pressed="false" aria-label="My location" title="My location"><span data-icon="locate"></span></button>
                 <button class="glass-btn" id="layersBtn" type="button" aria-haspopup="dialog" aria-label="Layers" title="Layers"><span data-icon="layers"></span></button>
                 <button class="glass-btn" id="nearbyBtn" type="button" aria-haspopup="dialog" aria-label="Send to a device nearby" title="Send to a device nearby"><span data-icon="nearby"></span></button>
+                <button class="glass-btn" id="updateBtn" type="button" aria-label="Check for updates" title="Check for updates"><span data-icon="update"></span></button>
                 <button class="glass-btn" id="themeBtn" type="button" aria-haspopup="dialog" aria-label="Theme" title="Theme"><span data-icon="sun"></span></button>
             </div>
         </div>
@@ -179,12 +180,15 @@
 
     <!-- Navigating. -->
     <section id="navHud" class="nav-hud hidden" aria-label="Navigation">
-        <div class="nav-next glass" role="status" aria-live="polite">
-            <span id="navIcon" class="nav-icon" data-icon="straight"></span>
-            <div>
-                <strong id="navDistance"></strong>
-                <p id="navText"></p>
+        <div class="nav-top">
+            <div class="nav-next glass" role="status" aria-live="polite">
+                <span id="navIcon" class="nav-icon" data-icon="straight"></span>
+                <div>
+                    <strong id="navDistance"></strong>
+                    <p id="navText"></p>
+                </div>
             </div>
+            <div id="navSpeed" class="speed glass hidden" aria-label="Speed"></div>
         </div>
         <div class="nav-bottom glass">
             <div class="nav-eta">
@@ -207,6 +211,9 @@
         </div>
         <p id="etaDetail" class="muted" role="status"></p>
     </section>
+
+    <!-- How fast you're going, when there's a speed to show. After the panels, which can hide it on a phone. -->
+    <div id="speedBadge" class="speed glass hidden" aria-label="Speed"></div>
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
@@ -309,6 +316,18 @@
                 <button class="icon-btn small" type="button" data-close-modal="nearbyModal" aria-label="Close"><span data-icon="close"></span></button>
             </div>
             <div id="nearbyBody"></div>
+        </div>
+    </div>
+
+    <!-- Scanning a code -->
+    <div class="modal-backdrop hidden" id="scanModal">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="scanTitle">
+            <div class="modal-head">
+                <h2 id="scanTitle">Scan a code</h2>
+                <button class="icon-btn small" type="button" data-close-modal="scanModal" aria-label="Close"><span data-icon="close"></span></button>
+            </div>
+            <video id="scanVideo" class="scan-video" playsinline muted></video>
+            <p id="scanStatus" class="muted" role="status"></p>
         </div>
     </div>
 </body>

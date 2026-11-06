@@ -37,6 +37,9 @@ class CataloguePack {
   final Map<String, List<ReleaseFile>> files;
 
   int archiveSize(String archive) => files[archive]!.fold(0, (n, f) => n + f.size);
+
+  /// The routing file's pieces on the release, as name and size, in a form an isolate can be sent.
+  List<(String, int)> get routeFiles => [for (final f in files['route']!) (f.name, f.size)];
 }
 
 class InstalledPack {
@@ -112,6 +115,14 @@ class PackStore extends ChangeNotifier {
     catalogueLoaded = true;
     notifyListeners();
   }
+
+  final Map<String, Future<CataloguePack?>> _published = {};
+
+  /// What's published of a pack, for walking with no saved map. Once a run is enough, unless it comes back empty.
+  Future<CataloguePack?> published(String id) => _published[id] ??= _manifest(id).then((pack) {
+        if (pack == null) _published.remove(id);
+        return pack;
+      });
 
   Future<CataloguePack?> _manifest(String id) async {
     try {

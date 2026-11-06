@@ -46,6 +46,8 @@ export function formatDistance(metres) {
   return `${Math.round(metres / 1000)} km`;
 }
 
+export const formatSpeed = (metresASecond) => `${Math.round(metresASecond * 3.6)} km/h`;
+
 export function formatDuration(seconds) {
   const mins = Math.max(1, Math.round(seconds / 60));
   if (mins < 60) return `${mins} min`;

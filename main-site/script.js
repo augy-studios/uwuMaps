@@ -1,17 +1,18 @@
 // uwuMaps: where it all starts.
 
 import { COLOR_THEMES, applyColorTheme, applyMode, getModePreference, getStoredColorTheme, getStoredMode, initTheme } from "./js/theme.js";
-import { $, closeModal, currentPosition, hydrateIcons, openModal, toast } from "./js/ui.js";
+import { $, closeModal, hydrateIcons, openModal, toast } from "./js/ui.js";
 import { initTray } from "./js/tray.js";
-import { initUpdateBar } from "./js/update.js";
+import { checkForUpdates, initUpdateBar } from "./js/update.js";
 import { initPacks, openPacks, wirePacks } from "./js/packs.js";
-import { getMap, initMap, onStyle, refreshStyle, setYouMarker } from "./js/map.js";
+import { getMap, initMap, onStyle, refreshStyle } from "./js/map.js";
+import { followLocation, initYou } from "./js/you.js";
 import { initTransit, openLayers, transitCardAt, wireLayers } from "./js/transit.js";
 import { addSavedLayer, hidePlace, openSaved, savedPlaces, setPlaceHandlers, showPlace, wirePlaces } from "./js/places.js";
 import { closeDirections, directionsOpen, openDirections, pickFromMap, setDirectionsHandlers, wireDirections } from "./js/directions.js";
 import { isNavigating, startNavigation, wireNav } from "./js/nav.js";
-import { openIncoming, receiveShared, shareDirections, shareList, sharePlace, wireShare } from "./js/share.js";
-import { onNearbyReceive, openNearby, wireNearby } from "./js/nearby.js";
+import { openIncoming, openScanned, receiveShared, shareDirections, shareList, sharePlace, wireShare } from "./js/share.js";
+import { onNearbyReceive, onNearbyScan, openNearby, wireNearby } from "./js/nearby.js";
 import { findPlaces, renderSuggestions } from "./js/search.js";
 
 /* ---- the theme sheet ---- */
@@ -93,7 +94,8 @@ function wireModals() {
   });
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    const open = document.querySelector(".modal-backdrop:not(.hidden)");
+    // The top one, as the scanner opens over Nearby.
+    const open = [...document.querySelectorAll(".modal-backdrop:not(.hidden)")].pop();
     if (open) closeModal(open.id);
   });
   document.getElementById("themeBtn").addEventListener("click", () => openModal("themeModal"));
@@ -210,16 +212,8 @@ function wireTray() {
     openModal("layersModal");
   });
   $("#nearbyBtn").addEventListener("click", () => openNearby(null));
-  $("#locateBtn").addEventListener("click", async () => {
-    try {
-      const pos = await currentPosition();
-      setYouMarker(pos.lat, pos.lon);
-      const map = getMap();
-      map.flyTo({ center: [pos.lon, pos.lat], zoom: Math.max(map.getZoom(), 16) });
-    } catch (err) {
-      toast(err.code === 1 ? "Allow location access to see where you are" : "Couldn't find your location", { error: true });
-    }
-  });
+  $("#locateBtn").addEventListener("click", followLocation);
+  $("#updateBtn").addEventListener("click", checkForUpdates);
 }
 
 /* ---- starting up ---- */
@@ -258,9 +252,11 @@ async function boot() {
     share: shareDirections,
   });
   onNearbyReceive(receiveShared);
+  onNearbyScan(openScanned);
 
   await initPacks();
   const map = await initMap();
+  initYou(map);
   // Saved places first, so the layers' saved on and off applies to them too.
   onStyle(addSavedLayer);
   initTransit();

@@ -80,7 +80,6 @@ export async function initMap() {
     attributionControl: { compact: true },
     canvasContextAttributes: { preserveDrawingBuffer: false },
   });
-  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
 
   map.on("style.load", () => {
     for (const callback of styleCallbacks) callback(map);

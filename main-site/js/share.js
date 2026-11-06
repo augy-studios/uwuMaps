@@ -330,31 +330,49 @@ function decodeSelfLink(hash) {
   }
 }
 
-// Opens whatever address the page was opened at.
-export function openIncoming() {
-  const path = SHARE_PATH.exec(location.pathname);
+// Opens an address of ours. Answers whether it was one.
+function openAddress(pathname, hash) {
+  const path = SHARE_PATH.exec(pathname);
   if (path) {
     openShortLink(path[2]);
-    return;
+    return true;
   }
-  const hash = location.hash;
   const short = /^#share\/([a-z0-9]{10})$/.exec(hash);
   if (short) {
     history.replaceState(null, "", "/");
     openShortLink(short[1]);
-    return;
+    return true;
   }
   const self = decodeSelfLink(hash);
   if (self?.kind && self.data && validSelfLink(self)) {
     history.replaceState(null, "", "/");
     applyLink(self.kind, self.data, {});
-    return;
+    return true;
   }
   const join = /^#join=([A-Za-z0-9]+)$/.exec(hash);
   if (join) {
     history.replaceState(null, "", "/");
     openNearby(null, { join: join[1] });
+    return true;
   }
+  return false;
+}
+
+// Opens whatever address the page was opened at.
+export function openIncoming() {
+  openAddress(location.pathname, location.hash);
+}
+
+// Opens a scanned link, ours whichever way it came: this site, maps.uwuapps.org or uwu://maps/. Answers whether it was.
+export function openScanned(text) {
+  let url;
+  try {
+    url = new URL(text);
+  } catch {
+    return false;
+  }
+  const ours = url.origin === location.origin || url.hostname === "maps.uwuapps.org" || (url.protocol === "uwu:" && url.hostname === "maps");
+  return ours && openAddress(url.pathname, url.hash);
 }
 
 const validPoint = (p) => p && typeof p.label === "string" && Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180;

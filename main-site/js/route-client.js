@@ -1,7 +1,11 @@
 // Getting a route: from a saved pack when one covers both ends, so it works the same with or without a
 // connection, and otherwise from the public OSRM servers (the same ones SG Bus Timings uses).
+//
+// One exception. Walking in Singapore always uses our own graph, as only that knows about void decks
+// (tools/packs/lib/void-decks.mjs). With no saved map, it's read from the published pack as it's needed.
 
-import { packAt } from "./packs.js";
+import { packAt, publishedPack } from "./packs.js";
+import { PACKS } from "./pack-list.js";
 import { stepText } from "./route-core.js";
 import { isOnline } from "./ui.js";
 
@@ -10,6 +14,11 @@ const OSRM = {
   bike: "https://routing.openstreetmap.de/routed-bike/route/v1/bike",
   car: "https://routing.openstreetmap.de/routed-car/route/v1/driving",
 };
+
+const WALK_PACK = "singapore";
+// A slow connection on its first walk goes to OSRM rather than keeping somebody waiting. The pieces still arrive,
+// so the next walk has them.
+const PUBLISHED_WAIT_MS = 12000;
 
 let worker = null;
 let nextId = 1;
@@ -35,7 +44,7 @@ function offlineRoute(pack, from, to, mode) {
   // An older request has been told to stop: it answers null when it does.
   return new Promise((resolve, reject) => {
     waiting.set(id, { resolve, reject });
-    worker.postMessage({ id, pack: { id: pack.id, build: pack.build }, from, to, mode });
+    worker.postMessage({ id, pack: { id: pack.id, build: pack.build, published: Boolean(pack.published) }, from, to, mode });
   });
 }
 
@@ -89,6 +98,27 @@ async function onlineRoute(from, to, mode, signal) {
   return { source: "online", mode, distance: Math.round(r.distance), duration: Math.round(r.duration), coords, steps };
 }
 
+async function walkFromPublished(from, to, mode) {
+  if (mode !== "foot") return null;
+  const { bounds: [w, s, e, n] } = PACKS.find((p) => p.id === WALK_PACK);
+  const inside = (p) => p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n;
+  if (!inside(from) || !inside(to)) return null;
+  try {
+    const info = await publishedPack(WALK_PACK);
+    if (!info) return null;
+    let timer;
+    const late = new Promise((resolve) => {
+      timer = setTimeout(() => resolve(null), PUBLISHED_WAIT_MS);
+    });
+    const route = await Promise.race([offlineRoute({ id: WALK_PACK, build: info.build, published: true }, from, to, mode), late]);
+    clearTimeout(timer);
+    return route && { ...route, source: "online" };
+  } catch (err) {
+    console.warn("Published map:", err.message);
+    return null;
+  }
+}
+
 export class NoRoute extends Error {}
 
 // Answers a route, or throws NoRoute with something worth reading.
@@ -107,6 +137,8 @@ export async function getRoute(from, to, mode, { signal } = {}) {
     if (!isOnline()) throw new NoRoute("No way there was found on the saved map.");
   }
   if (!isOnline()) throw new NoRoute("You're offline. Save this area in Offline maps to get directions here.");
+  const walk = await walkFromPublished(from, to, mode);
+  if (walk) return walk;
   try {
     const route = await onlineRoute(from, to, mode, signal);
     if (!route) throw new NoRoute("No way there was found.");

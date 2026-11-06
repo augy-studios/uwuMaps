@@ -1,14 +1,14 @@
 // Runs the offline router off the main thread, so a long search doesn't stop the map moving.
 
 import { RouteGraph, findRoute } from "./route-core.js";
-import { archiveReader } from "./pack-read.js";
+import { archiveReader, publishedReader } from "./pack-read.js";
 
 const graphs = new Map();
 let latest = 0;
 
 async function graphFor(pack) {
-  const key = `${pack.id}/${pack.build}`;
-  if (!graphs.has(key)) graphs.set(key, RouteGraph.open(archiveReader(pack.id, pack.build, "route")));
+  const key = `${pack.published ? "published" : "saved"}/${pack.id}/${pack.build}`;
+  if (!graphs.has(key)) graphs.set(key, RouteGraph.open((pack.published ? publishedReader : archiveReader)(pack.id, pack.build, "route")));
   try {
     return await graphs.get(key);
   } catch (err) {

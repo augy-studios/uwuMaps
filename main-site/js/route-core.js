@@ -13,7 +13,7 @@ export const MODES = {
   // near: how far from either end, in metres, every road is considered.
   car: { bit: 1, maxMps: 33, near: 15000 },
   bike: { bit: 2, maxMps: 6.5, near: 8000 },
-  foot: { bit: 4, maxMps: 1.5, near: 5000 },
+  foot: { bit: 4, maxMps: 1.75, near: 5000 },
 };
 
 export const CLASS = {
@@ -27,6 +27,9 @@ const FOOT_KMH = [0, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.8, 4.5, 4.5, 4.8, 4.8, 2.5,
 // How much less pleasant than its time a road is: what route quality trades against time.
 const BIKE_COST = [99, 2.2, 1.7, 1.4, 1.15, 1, 1, 1.05, 1.1, 1, 1.1, 0.8, 3, 1];
 const FOOT_COST = [99, 1.8, 1.4, 1.2, 1.05, 1, 1, 1, 1, 0.95, 0.9, 1.05, 1.2, 1];
+// Out of the sun and the rain is worth a small detour. On an edge, this bit says it's under cover.
+const SHELTER_COST = 0.85;
+const SHELTER_BIT = 8;
 
 // Search harder than exact, for speed: the route found is within a few percent of the best.
 const GREED = 1.2;
@@ -346,7 +349,7 @@ const edgeCost = (chunk, e, modeName, fraction = 1) => {
   const secs = edgeSeconds(chunk, e, modeName, fraction);
   const cls = chunk.cls[e] & 15;
   if (modeName === 'bike') return secs * BIKE_COST[cls];
-  if (modeName === 'foot') return secs * FOOT_COST[cls];
+  if (modeName === 'foot') return secs * FOOT_COST[cls] * (chunk.bits[e] & SHELTER_BIT ? SHELTER_COST : 1);
   return secs;
 };
 

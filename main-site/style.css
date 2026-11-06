@@ -375,7 +375,30 @@ body.modal-open { overflow: hidden; }
   box-shadow: var(--shadow) !important;
 }
 .maplibregl-ctrl-group button { width: 38px !important; height: 38px !important; }
-:root[data-mode="dark"] .maplibregl-ctrl-group button span { filter: invert(1); }
+.map-controls { display: flex; align-items: flex-end; gap: 6px; }
+.map-ctl { display: flex; align-items: center; justify-content: center; color: var(--ink); cursor: pointer; }
+.map-ctl svg { width: 20px; height: 20px; display: block; }
+.map-ctl[aria-pressed="true"] { color: var(--brand-ink); }
+.orbit-handle { cursor: grab; touch-action: none; }
+.orbit-handle:active { cursor: grabbing; }
+
+.speed { padding: 8px 12px; border-radius: 12px; font-size: 1.3rem; background: var(--panel); color: var(--ink); }
+.speed.hidden { display: none; }
+#speedBadge {
+  position: fixed;
+  z-index: 500;
+  left: max(12px, calc(env(safe-area-inset-left) + 12px));
+  bottom: max(44px, calc(env(safe-area-inset-bottom) + 44px));
+}
+/* Navigation has it under the next turn. */
+body.navigating #speedBadge { display: none; }
+/* Out of the way of a panel that's taking the bottom of a phone's screen. */
+@media (max-width: 920px) {
+  #placeCard:not(.hidden) ~ #speedBadge,
+  #directionsPanel:not(.hidden) ~ #speedBadge,
+  #etaView:not(.hidden) ~ #speedBadge { display: none; }
+}
+.scan-video { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; background: var(--ink); margin-bottom: 8px; }
 .maplibregl-ctrl-attrib { font-size: 0.7rem; }
 .maplibregl-ctrl-attrib.maplibregl-compact { background: var(--panel) !important; color: var(--ink); }
 .maplibregl-ctrl-attrib a { color: var(--ink) !important; }
@@ -554,11 +577,20 @@ body.directions-open .topbar { display: none; }
 .nav-hud { position: fixed; inset: 0; z-index: 660; pointer-events: none; opacity: 1; transition: opacity 0.2s ease, visibility 0s linear 0s; }
 .nav-hud.hidden { opacity: 0; visibility: hidden; transition: opacity 0.18s ease, visibility 0s linear 0.18s; }
 .nav-hud > * { pointer-events: auto; }
-.nav-next {
+.nav-hud > .nav-top {
   position: absolute;
   top: var(--tray-top);
   left: max(12px, calc(env(safe-area-inset-left) + 12px));
   width: min(420px, calc(100vw - 24px - var(--glass-btn) - var(--edge) - 32px));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+.nav-top > * { pointer-events: auto; }
+.nav-next {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -928,6 +960,7 @@ a.btn { text-decoration: none; color: var(--ink); }
 .tray-buttons > :nth-child(6) { --i: 5; }
 .tray-buttons > :nth-child(7) { --i: 6; }
 .tray-buttons > :nth-child(8) { --i: 7; }
+.tray-buttons > :nth-child(9) { --i: 8; }
 .tray.collapsed .tray-buttons > * {
   opacity: 0;
   translate: 12px 0; /* towards the edge it leaves by */

@@ -53,12 +53,21 @@ export function parseSpeed(v) {
   return Math.round(m[2]?.toLowerCase() === 'mph' ? n * 1.609 : n);
 }
 
+// A walking way with a roof over it. Roads are left out: a covered road is a car park or an underpass, not
+// somewhere anybody chooses to walk.
+function isSheltered(tags, cls) {
+  if (cls < CLASS.path || cls === CLASS.ferry) return false;
+  if (tags.covered && tags.covered !== 'no') return true;
+  return tags.tunnel === 'building_passage' || tags.indoor === 'yes' || tags.indoor === 'corridor' || tags.highway === 'corridor';
+}
+
 // A way's routing facts, or null when nothing can use it.
 //   cls       one of CLASS
 //   link      a slip road
 //   roundabout
 //   kmh       driving speed
-//   fwd, back bit 0 driving, bit 1 cycling, bit 2 walking, in each direction along the way
+//   fwd, back bit 0 driving, bit 1 cycling, bit 2 walking, in each direction along the way, and bit 3 for
+//             walking under cover, which older copies of the app don't look at
 export function classify(tags) {
   let cls;
   let link = false;
@@ -78,7 +87,9 @@ export function classify(tags) {
     cls !== CLASS.motorway && cls !== CLASS.steps,
   );
   // Busy trunk roads usually have a separate pavement, mapped as its own footway.
-  const foot = allowed(tags, ['foot', 'access'], cls !== CLASS.motorway && !(cls === CLASS.trunk && tags.sidewalk === 'no'));
+  // Anybody can walk through a mall, even though it's closed to deliveries and to cars.
+  const foot = tags.foot === 'customers' || (tags.foot == null && tags.access === 'customers')
+    || allowed(tags, ['foot', 'access'], cls !== CLASS.motorway && !(cls === CLASS.trunk && tags.sidewalk === 'no'));
   if (!car && !bike && !foot) return null;
 
   const roundabout = tags.junction === 'roundabout' || tags.junction === 'circular';
@@ -104,8 +115,9 @@ export function classify(tags) {
     bikeBack = true;
   }
 
-  const fwd = (car && carFwd ? 1 : 0) | (bike && bikeFwd ? 2 : 0) | (foot ? 4 : 0);
-  const back = (car && carBack ? 1 : 0) | (bike && bikeBack ? 2 : 0) | (foot ? 4 : 0);
+  const walking = foot ? (isSheltered(tags, cls) ? 4 | 8 : 4) : 0;
+  const fwd = (car && carFwd ? 1 : 0) | (bike && bikeFwd ? 2 : 0) | walking;
+  const back = (car && carBack ? 1 : 0) | (bike && bikeBack ? 2 : 0) | walking;
   if (!fwd && !back) return null;
 
   const limit = parseSpeed(tags.maxspeed);

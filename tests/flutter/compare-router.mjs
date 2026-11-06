@@ -20,6 +20,7 @@ const ENDS = {
   'orchard-marina': [{ lat: 1.3048, lon: 103.8318 }, { lat: 1.2835, lon: 103.8565 }],
   'tampines-jurong': [{ lat: 1.3521, lon: 103.9448 }, { lat: 1.3333, lon: 103.7423 }],
   'short-walk': [{ lat: 1.2905, lon: 103.8520 }, { lat: 1.2925, lon: 103.8540 }],
+  'estate-walk': [{ lat: 1.3665, lon: 103.8500 }, { lat: 1.3690, lon: 103.8440 }],
 };
 
 let failed = 0;

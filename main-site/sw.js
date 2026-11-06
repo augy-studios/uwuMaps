@@ -31,7 +31,7 @@
 //
 // 5. Nothing under /api/ is ever cached, and saved packs, tiles and the font survive a new version.
 
-const CACHE_VERSION = "v7";
+const CACHE_VERSION = "v8";
 const SHELL_CACHE = `uwumaps-shell-${CACHE_VERSION}`;
 // Not versioned, so a new version of the app doesn't throw away what's been seen or saved.
 const TILE_CACHE = "uwumaps-tiles";
@@ -69,6 +69,7 @@ const SHELL = [
   "/js/route-client.js",
   "/js/route-core.js",
   "/js/route-worker.js",
+  "/js/scanner.js",
   "/js/search.js",
   "/js/share.js",
   "/js/theme.js",
@@ -76,6 +77,8 @@ const SHELL = [
   "/js/tray.js",
   "/js/ui.js",
   "/js/update.js",
+  "/js/you.js",
+  "/vendor/jsqr/jsQR.js",
   "/vendor/maplibre/maplibre-gl.mjs",
   "/vendor/maplibre/maplibre-gl-worker.mjs",
   "/vendor/maplibre/maplibre-gl.css",

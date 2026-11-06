@@ -9,7 +9,7 @@ Explore cities in colourful 3D and find your way on foot, by bike or by car. Liv
 | `android/` | The Android app, native in Flutter, not a WebView. See its [README](android/README.md). |
 | `release/` | The Android APKs, and how to publish one. See its [README](release/README.md). |
 | `announcement/` | Each release's notes and announcement. |
-| `tools/` | Builds offline packs (`tools/packs/`) and refreshes the public transport snapshots (`tools/vendor-transit.mjs`). |
+| `tools/` | Builds offline packs (`tools/packs/`) and refreshes the public transport and HDB snapshots (`tools/vendor-transit.mjs`, `tools/vendor-hdb-blocks.mjs`). |
 | `migrations/` | SQL to run once each, in order, in the Supabase SQL editor. Never edited after: changes go in a new file. |
 | `tests/` | Playwright tests and checks against real Singapore data. |
 | `docs/` | The specs the app follows. |
@@ -34,11 +34,28 @@ A pack is four files on the `offline-packs` release, built per region from `main
 | --- | --- | --- |
 | `base` | Planetiler's OpenMapTiles profile | The map, drawn by OpenFreeMap's styles |
 | `buildings` | `tools/packs/extract-buildings.mjs` | Overture Maps' 3D buildings, reduced to what's drawn |
-| `route` | `tools/packs/compile-graph.mjs` | The road graph for walking, cycling and driving |
+| `route` | `tools/packs/compile-graph.mjs` | The graph of ways for walking, cycling and driving, with void decks in Singapore |
 | `search` | `tools/packs/compile-graph.mjs` | Places and streets |
 
 GitHub's downloads send no CORS headers, so the app fetches pack files through `/api/mappack`, 4 MiB
 at a time, into the Cache API. To add a region, add it to `pack-list.js` and run the workflow.
+
+## Walking through void decks
+
+OpenStreetMap maps a way through only 1 to 4% of HDB blocks in most towns, so `tools/packs/lib/void-decks.mjs` adds
+walk-only links through the rest when it builds the graph, and along covered walkways drawn only as a roof. They're
+inferred, not surveyed, so it's careful: HDB's own list says which blocks hold flats with no shops on the ground floor,
+condos are never crossed, and a link needs a way to join on both sides with no fence, drain or other building between.
+A step names its block: "Turn left onto Blk 441 void deck".
+
+Only our graph knows about these, and the public OSRM server can't. So walking in Singapore uses the published pack even
+with no saved map, read as it's needed, and goes to OSRM if that fails. Everything else uses OSRM until a map is saved.
+
+The list of blocks is a snapshot in `tools/packs/data/hdb-blocks.json`. It rarely changes. To refresh it:
+
+```sh
+node tools/vendor-hdb-blocks.mjs
+```
 
 ## Refreshing public transport data
 
@@ -62,6 +79,7 @@ npx playwright test --config playwright.config.mjs
 node unit/migrations-check.mjs     # The migrations, on a real Postgres
 node unit/decode-check.mjs         # The live feed decoder, on made-up and real feeds
 node unit/route-check.mjs .fixture/singapore.route
+node unit/void-decks-check.mjs .fixture/singapore.route  # Walking links, on made-up blocks and then real ones
 ```
 
 The Android app has its own, in `tests/flutter/` and `android/test/`: see [its README](android/README.md#testing).

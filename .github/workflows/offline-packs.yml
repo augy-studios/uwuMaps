@@ -3,7 +3,7 @@
 #   base       The basemap: Planetiler's OpenMapTiles profile, from OpenStreetMap, which OpenFreeMap's
 #              styles draw as they are.
 #   buildings  Coloured 3D buildings, cut out of Overture Maps' archive and slimmed down.
-#   route      The offline router's road graph, for walking, cycling and driving.
+#   route      The offline router's graph, for walking, cycling and driving, with void decks in Singapore.
 #   search     Places and streets, for searching offline.
 #
 # Each goes on the `offline-packs` release as <id>-<build>.<archive>.000, .001 and so on (1 GiB each:
