@@ -8,6 +8,8 @@ String formatDistance(num metres) {
   return '${(metres / 1000).round()} km';
 }
 
+String formatSpeed(num metresASecond) => '${(metresASecond * 3.6).round()} km/h';
+
 String formatDuration(num seconds) {
   final mins = math.max(1, (seconds / 60).round());
   if (mins < 60) return '$mins min';

@@ -45,6 +45,13 @@ class MapService extends ChangeNotifier {
 
   List<double>? _place;
   List<double>? _you;
+  bool _youDot = false;
+
+  /// Something else is taking the camera, so whatever was following you lets go of it.
+  VoidCallback? onCameraTaken;
+
+  /// The orbit handle is about to turn the view.
+  VoidCallback? onOrbit;
   LatLon? _fromEnd;
   LatLon? _toEnd;
 
@@ -233,7 +240,7 @@ class MapService extends ChangeNotifier {
           'properties': {'kind': kind, 'icon': icon},
         };
     final features = <Object>[
-      if (_you != null) f(_you![0], _you![1], 'you'),
+      if (_you != null && !_youDot) f(_you![0], _you![1], 'you'),
       if (_fromEnd != null) f(_fromEnd!.lat, _fromEnd!.lon, 'from', 'uwu-pin-from'),
       if (_toEnd != null) f(_toEnd!.lat, _toEnd!.lon, 'to', 'uwu-pin'),
       if (_place != null) f(_place![0], _place![1], 'place', 'uwu-pin'),
@@ -249,6 +256,19 @@ class MapService extends ChangeNotifier {
   void clearPlaceMarker() {
     _place = null;
     _drawMarkers();
+  }
+
+  /// From here on you're MapLibre's live dot, so the one-off marker stays out of its way.
+  void useYouDot() {
+    _youDot = true;
+    _drawMarkers();
+  }
+
+  /// Moves the live dot, and the camera with it if it's following.
+  void showYou(double lat, double lon, {double? accuracy, double? bearing, double? speed}) {
+    unawaited(controller
+        ?.updateManualLocation(ManualLocationUpdate(target: LatLng(lat, lon), horizontalAccuracy: accuracy, bearing: bearing, speed: speed))
+        .catchError((Object err) => debugPrint('showYou: $err')));
   }
 
   void setYouMarker(double lat, double lon) {
@@ -301,6 +321,7 @@ class MapService extends ChangeNotifier {
   }
 
   Future<void> flyTo(double lat, double lon, {double? zoom}) async {
+    onCameraTaken?.call();
     final z = math.max(camera.zoom, zoom ?? 16);
     await controller?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: LatLng(lat, lon), zoom: z, tilt: camera.tilt, bearing: camera.bearing)), duration: const Duration(milliseconds: 900));
   }
@@ -314,12 +335,16 @@ class MapService extends ChangeNotifier {
   }
 
   Future<void> resetNorth() async {
+    onCameraTaken?.call();
     final c = camera;
     await controller?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: c.target, zoom: c.zoom, tilt: 0, bearing: 0)), duration: const Duration(milliseconds: 400));
   }
 
   /// A new drag on the orbit handle, which starts from wherever the camera is now.
-  void orbitStart() => _orbitGoal = null;
+  void orbitStart() {
+    _orbitGoal = null;
+    onOrbit?.call();
+  }
 
   /// Tilts and turns by a drag on the handle. A drag comes faster than the map answers, so only the latest
   /// goal is sent. Anything else moving the map meanwhile, such as navigation following along, keeps its place.
@@ -348,6 +373,7 @@ class MapService extends ChangeNotifier {
   Future<void> fitCoords(List<List<double>> coords, Size screen) async {
     final c = controller;
     if (c == null || coords.isEmpty) return;
+    onCameraTaken?.call();
     var w = coords.first[0];
     var e = w;
     var s = coords.first[1];

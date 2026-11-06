@@ -12,6 +12,7 @@ import '../app.dart';
 import '../core/device.dart';
 import '../core/models.dart';
 import '../core/net.dart';
+import '../nav/you.dart';
 import '../theme/app_icon.dart';
 import '../theme/tokens.dart';
 import '../update/update_page.dart';
@@ -74,6 +75,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final on = state == AppLifecycleState.resumed;
     app.transit.setForeground(on);
+    app.you.setForeground(on);
     if (on) app.updater.onResume();
   }
 
@@ -158,16 +160,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   /* ---- the tray ---- */
-
-  Future<void> _locate() async {
-    try {
-      final pos = await locate();
-      app.map.setYouMarker(pos.lat, pos.lon);
-      await app.map.flyTo(pos.lat, pos.lon);
-    } on LocationFailure catch (err) {
-      app.toast(locationMessage(err), error: true);
-    }
-  }
 
   Future<void> _checkForUpdates(BuildContext c) => openUpdatePage(c, checkOnly: true);
 
@@ -286,6 +278,8 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return [
       // Out of the way of a panel that's taking the bottom of a phone's screen.
       if (!(narrow && (place != null || d.open || eta != null || n.active))) MapControls(right: edge - 2, bottom: m.padding.bottom + 44, service: app.map),
+      // Navigation has it under the next turn.
+      if (!n.active && !(narrow && (place != null || d.open || eta != null))) Positioned(left: 12 + m.padding.left, bottom: m.padding.bottom + 44, child: const SpeedBadge()),
       if (!d.open && !n.active)
         AnimatedPositioned(
           duration: const Duration(milliseconds: 340),
@@ -355,7 +349,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               d.openPanel();
             }
           },
-          onLocate: _locate,
+          onLocate: app.you.followLocation,
           onCheckUpdates: _checkForUpdates,
         ),
       ),
@@ -376,7 +370,13 @@ class _Tray extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.t;
+    return ListenableBuilder(
+      listenable: app.you,
+      builder: (context, _) => _tray(context, context.t, app.you.following),
+    );
+  }
+
+  Widget _tray(BuildContext context, Tokens t, bool following) {
     return EdgeTray(
       key: trayKey,
       maxHeight: maxHeight,
@@ -386,7 +386,7 @@ class _Tray extends StatelessWidget {
         TrayButton('bookmark', 'Saved places', () => openSaved(context)),
         TrayButton('download', 'Offline maps', () => openPacks(context)),
         null,
-        TrayButton('locate', 'My location', onLocate),
+        TrayButton('locate', 'My location', onLocate, selected: following),
         TrayButton('layers', 'Layers', () => openLayers(context)),
         TrayButton('nearby', 'Send to a device nearby', () => openNearby(context)),
         TrayButton('update', 'Check for updates', () => onCheckUpdates(context)),
@@ -480,33 +480,54 @@ class _MapViewState extends State<_MapView> {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: MapLibreMap(
-        styleString: _style,
-        initialCameraPosition: _start,
-        // A TextureView, so Flutter draws the map into its own frame: the map's updates reach the screen as
-        // they happen, and the glass over it can blur it. On the default SurfaceView, labels stayed frozen
-        // part way through fading in until something else on screen moved. They appear without that fade.
-        androidView: const AndroidMapView(surface: AndroidMapSurface.textureView),
-        symbolPlacementTransitionsEnabled: false,
-        trackCameraPosition: true,
-        compassEnabled: false,
-        logoEnabled: false,
-        attributionEnabled: true,
-        attributionButtonPosition: AttributionButtonPosition.bottomLeft,
-        attributionButtonMargins: Point<double>(4 + MediaQuery.of(context).padding.left, 4 + MediaQuery.of(context).padding.bottom),
-        foregroundLoadColor: widget.background,
-        rotateGesturesEnabled: true,
-        // Off so two fingers always pan: MapLibre's tilt starts once two level fingers go up or down, and stops
-        // the map panning until they lift. The handle in the map controls tilts instead.
-        tiltGesturesEnabled: false,
-        onMapCreated: app.map.attach,
-        onStyleLoadedCallback: app.map.onStyleLoaded,
-        onMapClick: widget.onTap,
-        onCameraIdle: () {
-          app.map.saveView();
-          app.transit.loadVisible();
-        },
+      // A Listener takes nothing from the map, which still gets every finger.
+      child: Listener(
+        onPointerDown: (e) => app.you.fingers.down(e.pointer, e.localPosition),
+        onPointerMove: (e) => app.you.fingerMoved(e.pointer, e.localPosition),
+        onPointerUp: (e) => app.you.fingers.up(e.pointer),
+        onPointerCancel: (e) => app.you.fingers.up(e.pointer),
+        child: ListenableBuilder(
+          listenable: app.you,
+          builder: (context, _) => _map(context, app.you),
+        ),
       ),
+    );
+  }
+
+  Widget _map(BuildContext context, You you) {
+    return MapLibreMap(
+      // The app's own fixes, so navigation can say which way the map faces.
+      locationSource: const ManualLocationSource(),
+      myLocationEnabled: you.shown,
+      myLocationTrackingMode: you.mode,
+      myLocationRenderMode: you.renderMode,
+      onCameraTrackingChanged: you.trackingChanged,
+      onCameraTrackingDismissed: you.stopFollowing,
+      styleString: _style,
+      initialCameraPosition: _start,
+      // A TextureView, so Flutter draws the map into its own frame: the map's updates reach the screen as
+      // they happen, and the glass over it can blur it. On the default SurfaceView, labels stayed frozen
+      // part way through fading in until something else on screen moved. They appear without that fade.
+      androidView: const AndroidMapView(surface: AndroidMapSurface.textureView),
+      symbolPlacementTransitionsEnabled: false,
+      trackCameraPosition: true,
+      compassEnabled: false,
+      logoEnabled: false,
+      attributionEnabled: true,
+      attributionButtonPosition: AttributionButtonPosition.bottomLeft,
+      attributionButtonMargins: Point<double>(4 + MediaQuery.of(context).padding.left, 4 + MediaQuery.of(context).padding.bottom),
+      foregroundLoadColor: widget.background,
+      rotateGesturesEnabled: true,
+      // Off so two fingers always pan: MapLibre's tilt starts once two level fingers go up or down, and stops
+      // the map panning until they lift. The handle in the map controls tilts instead.
+      tiltGesturesEnabled: false,
+      onMapCreated: app.map.attach,
+      onStyleLoadedCallback: app.map.onStyleLoaded,
+      onMapClick: widget.onTap,
+      onCameraIdle: () {
+        app.map.saveView();
+        app.transit.loadVisible();
+      },
     );
   }
 }

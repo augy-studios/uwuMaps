@@ -12,6 +12,7 @@ import 'package:uwumaps/core/format.dart';
 import 'package:uwumaps/core/models.dart';
 import 'package:uwumaps/core/prefs.dart';
 import 'package:uwumaps/map/map_service.dart';
+import 'package:uwumaps/nav/you.dart';
 import 'package:uwumaps/nearby/binarypack.dart';
 import 'package:uwumaps/share/links.dart';
 import 'package:uwumaps/theme/theme_controller.dart';
@@ -262,6 +263,85 @@ void main() {
       expect(n.notes[0].items[2].text, 'A plain item');
       expect(n.notes[1].items[0].title, 'Offline maps');
       expect(n.notes[1].items[0].text, 'No connection needed.');
+    });
+  });
+
+  group('two fingers while following', () {
+    bool drag(Offset a, Offset b) {
+      final d = TwoFingerDrag();
+      const startA = Offset(100, 300), startB = Offset(200, 300);
+      d.down(1, startA);
+      d.down(2, startB);
+      var dragged = false;
+      for (var step = 1; step <= 10; step++) {
+        dragged = d.move(1, startA + a * (step / 10)) || dragged;
+        dragged = d.move(2, startB + b * (step / 10)) || dragged;
+      }
+      return dragged;
+    }
+
+    test('both going the same way is a drag, in any direction', () {
+      expect(drag(const Offset(0, 100), const Offset(0, 100)), isTrue);
+      expect(drag(const Offset(0, -100), const Offset(0, -100)), isTrue);
+      expect(drag(const Offset(-100, 20), const Offset(-100, 20)), isTrue);
+    });
+
+    test('a pinch, a twist and a small tremble are not', () {
+      expect(drag(const Offset(-100, 0), const Offset(100, 0)), isFalse);
+      expect(drag(const Offset(0, -100), const Offset(0, 100)), isFalse);
+      expect(drag(const Offset(0, 100), Offset.zero), isFalse);
+      expect(drag(const Offset(5, 5), const Offset(5, 5)), isFalse);
+    });
+
+    test('one finger is not, and a finger lifting starts again', () {
+      final d = TwoFingerDrag();
+      d.down(1, const Offset(100, 300));
+      expect(d.move(1, const Offset(100, 500)), isFalse);
+      d.down(2, const Offset(200, 500));
+      d.up(2);
+      expect(d.move(1, const Offset(100, 700)), isFalse);
+      expect(d.move(9, const Offset(0, 0)), isFalse);
+    });
+  });
+
+  group('the speed on the map', () {
+    test('reads in km/h', () {
+      expect(formatSpeed(0), '0 km/h');
+      expect(formatSpeed(13.9), '50 km/h');
+    });
+
+    test('on a route, a car and a bike always show it, and on foot never', () {
+      final s = SpeedReadout();
+      s.update(0, routeMode: 'car');
+      expect(s.mps, 0);
+      s.update(5, routeMode: 'bike');
+      expect(s.mps, 5);
+      s.update(5, routeMode: 'foot');
+      expect(s.mps, isNull);
+    });
+
+    test('with no route, it shows above a walk and stays until well below', () {
+      final s = SpeedReadout();
+      s.update(1.4);
+      expect(s.mps, isNull);
+      s.update(2.5);
+      expect(s.mps, 2.5);
+      s.update(1.6);
+      expect(s.mps, 1.6);
+      s.update(1.4);
+      expect(s.mps, isNull);
+      s.update(2);
+      expect(s.mps, isNull);
+    });
+
+    test('an unknown speed shows nothing', () {
+      final s = SpeedReadout();
+      s.update(10);
+      s.update(null);
+      expect(s.mps, isNull);
+      s.update(10, routeMode: 'car');
+      s.update(-1, routeMode: 'car');
+      expect(s.mps, isNull);
     });
   });
 

@@ -679,29 +679,36 @@ class NavHud extends StatelessWidget {
               left: left,
               top: top,
               width: nextWidth,
-              child: Semantics(
-                liveRegion: true,
-                container: true,
-                label: 'Navigation',
-                child: Panel(
-                  color: t.brandFillStrong,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  child: Row(
-                    children: [
-                      AppIcon(stepIconName(step), size: 38, color: t.onBrand),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(formatDistance(p.toStep), style: TextStyle(fontSize: 20.8, color: t.onBrand)),
-                            Text(step.text, style: TextStyle(fontSize: 16, color: t.onBrand)),
-                          ],
-                        ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    liveRegion: true,
+                    container: true,
+                    label: 'Navigation',
+                    child: Panel(
+                      color: t.brandFillStrong,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      child: Row(
+                        children: [
+                          AppIcon(stepIconName(step), size: 38, color: t.onBrand),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(formatDistance(p.toStep), style: TextStyle(fontSize: 20.8, color: t.onBrand)),
+                                Text(step.text, style: TextStyle(fontSize: 16, color: t.onBrand)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SpeedBadge(top: 8),
+                ],
               ),
             ),
             Positioned(
@@ -747,6 +754,36 @@ class NavHud extends StatelessWidget {
 
 /* ---- map controls ---- */
 
+/// How fast you're going, when there's a speed to show: see SpeedReadout.
+class SpeedBadge extends StatelessWidget {
+  const SpeedBadge({super.key, this.top = 0});
+  final double top;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return ListenableBuilder(
+      listenable: app.you,
+      builder: (context, _) {
+        final mps = app.you.speed.mps;
+        if (mps == null) return const SizedBox.shrink();
+        return Padding(
+          padding: EdgeInsets.only(top: top),
+          child: Semantics(
+            container: true,
+            label: 'Speed',
+            child: Panel(
+              radius: 12,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(formatSpeed(mps), style: TextStyle(fontSize: 20.8, color: t.ink)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class MapControls extends StatelessWidget {
   const MapControls({super.key, required this.bottom, required this.right, required this.service});
   final double bottom;
@@ -774,7 +811,13 @@ class MapControls extends StatelessWidget {
               children: [
                 _Ctl('plus', 'Zoom in', () => service.zoomBy(1), t),
                 _Ctl('minus', 'Zoom out', () => service.zoomBy(-1), t),
-                _Ctl('compass', 'Face north, and flat', service.resetNorth, t),
+                ListenableBuilder(
+                  listenable: app.you,
+                  builder: (context, _) {
+                    final on = app.you.facingCompass;
+                    return _Ctl('compass', on ? 'Face north, and flat' : 'Point the map the way you are facing', app.you.toggleCompass, t, selected: on);
+                  },
+                ),
               ],
             ),
           ),
@@ -823,11 +866,12 @@ class _OrbitHandle extends StatelessWidget {
 }
 
 class _Ctl extends StatelessWidget {
-  const _Ctl(this.icon, this.label, this.onTap, this.t);
+  const _Ctl(this.icon, this.label, this.onTap, this.t, {this.selected = false});
   final String icon;
   final String label;
   final VoidCallback onTap;
   final Tokens t;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) => Tooltip(
@@ -836,13 +880,14 @@ class _Ctl extends StatelessWidget {
         child: Semantics(
           container: true,
           button: true,
+          selected: selected,
           label: label,
           excludeSemantics: true,
           onTap: onTap,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onTap,
-            child: SizedBox(width: 38, height: 38, child: Center(child: AppIcon(icon, size: 20, color: t.ink))),
+            child: SizedBox(width: 38, height: 38, child: Center(child: AppIcon(icon, size: 20, color: selected ? t.brandInk : t.ink))),
           ),
         ),
       );

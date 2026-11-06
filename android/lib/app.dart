@@ -7,6 +7,7 @@ import 'core/models.dart';
 import 'map/map_service.dart';
 import 'nav/directions.dart';
 import 'nav/navigation.dart';
+import 'nav/you.dart';
 import 'packs/pack_store.dart';
 import 'places/places.dart';
 import 'search/search.dart';
@@ -29,6 +30,7 @@ class App {
     search = SearchService(packs, transit);
     directions = Directions(this);
     navigation = Navigation(this);
+    you = You(this);
     share = ShareService(this);
   }
 
@@ -41,6 +43,7 @@ class App {
   late final SearchService search;
   late final Directions directions;
   late final Navigation navigation;
+  late final You you;
   late final ShareService share;
 
   /// The place on the card, if there is one.

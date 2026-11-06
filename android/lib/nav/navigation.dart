@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:maplibre_gl/maplibre_gl.dart' show MyLocationTrackingMode;
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../app.dart';
@@ -70,6 +71,8 @@ class Navigation extends ChangeNotifier {
   int _offCount = 0;
   DateTime _reroutedAt = DateTime.fromMillisecondsSinceEpoch(0);
   bool _rerouting = false;
+  bool _framing = false;
+  bool _framed = false;
   StreamSubscription<Position>? _watch;
   FlutterTts? _tts;
 
@@ -190,10 +193,16 @@ class Navigation extends ChangeNotifier {
 
   void onPosition(double lat, double lon, {double accuracy = 20, double heading = double.nan, double speed = 0}) {
     if (!active) return;
-    app.map.setYouMarker(lat, lon);
     final r = route!;
     final here = _locate(r.coords, _index, lat, lon);
     _index = here.index;
+
+    // The way ahead is up, tilted, when moving. Otherwise along the line.
+    final nextPoint = r.coords[math.min(here.index + 1, r.coords.length - 1)];
+    final lineBearing = math.atan2((nextPoint[0] - lon) * math.cos(lat * math.pi / 180), nextPoint[1] - lat) * 180 / math.pi;
+    final bearing = heading.isFinite && speed > 1 ? heading : lineBearing;
+    app.you.fix(lat, lon, accuracy: accuracy, bearing: (bearing + 360) % 360, mps: speed, routeMode: r.mode);
+
     lastFix = LastFix(lat, lon, accuracy, DateTime.now().millisecondsSinceEpoch);
 
     if (here.d > (_offRouteM[r.mode] ?? 60)) {
@@ -219,11 +228,13 @@ class Navigation extends ChangeNotifier {
       return;
     }
 
-    // The way ahead is up, tilted, when moving. Otherwise along the line.
-    final nextPoint = r.coords[math.min(here.index + 1, r.coords.length - 1)];
-    final lineBearing = math.atan2((nextPoint[0] - lon) * math.cos(lat * math.pi / 180), nextPoint[1] - lat) * 180 / math.pi;
-    final bearing = heading.isFinite && speed > 1 ? heading : lineBearing;
-    unawaited(app.map.easeTo(lat, lon, zoom: r.mode == 'car' ? 17 : 18, tilt: 60, bearing: bearing));
+    // Over to the first fix, close and tilted, and from then on the camera goes where the dot goes. Dragged
+    // away, it's back with the next fix.
+    if (!_framing) {
+      _framing = true;
+      unawaited(app.map.easeTo(lat, lon, zoom: r.mode == 'car' ? 17 : 18, tilt: 60, bearing: bearing).whenComplete(() => _framed = true));
+    }
+    if (_framed) app.you.follow(MyLocationTrackingMode.trackingGps);
     onProgress?.call();
   }
 
@@ -233,6 +244,8 @@ class Navigation extends ChangeNotifier {
     to = ends.to;
     active = true;
     _offCount = 0;
+    _framing = false;
+    _framed = false;
     _rerouting = false;
     _reroutedAt = DateTime.fromMillisecondsSinceEpoch(0);
     _useRoute(r);
@@ -288,6 +301,7 @@ class Navigation extends ChangeNotifier {
     route = null;
     progress = null;
     app.map.clearRoute();
+    app.you.navigationEnded();
     notifyListeners();
   }
 }
