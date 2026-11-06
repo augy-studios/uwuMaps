@@ -15,6 +15,15 @@ import '../core/prefs.dart';
 import '../theme/tokens.dart';
 import 'map_style.dart';
 
+/// Where a drag on the orbit handle takes the camera, staying over the same spot: up tilts further, down
+/// flattens, and sideways turns the view.
+CameraPosition orbited(CameraPosition from, Offset drag) => CameraPosition(
+      target: from.target,
+      zoom: from.zoom,
+      tilt: (from.tilt - drag.dy * 0.5).clamp(0.0, 60.0),
+      bearing: (from.bearing + drag.dx * 0.8) % 360,
+    );
+
 const String _viewKey = 'uwumaps.view';
 const String _layersKey = 'uwumaps.layers';
 
@@ -277,6 +286,9 @@ class MapService extends ChangeNotifier {
 
   CameraPosition get camera => controller?.cameraPosition ?? initialView;
 
+  CameraPosition? _orbitGoal;
+  bool _orbitSending = false;
+
   void saveView() {
     final c = controller?.cameraPosition;
     if (c == null) return;
@@ -304,6 +316,32 @@ class MapService extends ChangeNotifier {
   Future<void> resetNorth() async {
     final c = camera;
     await controller?.animateCamera(CameraUpdate.newCameraPosition(CameraPosition(target: c.target, zoom: c.zoom, tilt: 0, bearing: 0)), duration: const Duration(milliseconds: 400));
+  }
+
+  /// A new drag on the orbit handle, which starts from wherever the camera is now.
+  void orbitStart() => _orbitGoal = null;
+
+  /// Tilts and turns by a drag on the handle. A drag comes faster than the map answers, so only the latest
+  /// goal is sent. Anything else moving the map meanwhile, such as navigation following along, keeps its place.
+  void orbitBy(Offset drag) {
+    final goal = _orbitGoal;
+    final c = camera;
+    _orbitGoal = orbited(goal == null ? c : CameraPosition(target: c.target, zoom: c.zoom, tilt: goal.tilt, bearing: goal.bearing), drag);
+    unawaited(_sendOrbit());
+  }
+
+  Future<void> _sendOrbit() async {
+    if (_orbitSending) return;
+    _orbitSending = true;
+    try {
+      CameraPosition? sent;
+      while (_orbitGoal != null && _orbitGoal != sent) {
+        sent = _orbitGoal;
+        await controller?.moveCamera(CameraUpdate.newCameraPosition(sent!));
+      }
+    } finally {
+      _orbitSending = false;
+    }
   }
 
   /// Fits points in, leaving room for the panels and for the tray along the right.

@@ -496,7 +496,9 @@ class _MapViewState extends State<_MapView> {
         attributionButtonMargins: Point<double>(4 + MediaQuery.of(context).padding.left, 4 + MediaQuery.of(context).padding.bottom),
         foregroundLoadColor: widget.background,
         rotateGesturesEnabled: true,
-        tiltGesturesEnabled: true,
+        // Off so two fingers always pan: MapLibre's tilt starts once two level fingers go up or down, and stops
+        // the map panning until they lift. The handle in the map controls tilts instead.
+        tiltGesturesEnabled: false,
         onMapCreated: app.map.attach,
         onStyleLoadedCallback: app.map.onStyleLoaded,
         onMapClick: widget.onTap,

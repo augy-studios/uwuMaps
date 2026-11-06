@@ -759,16 +759,63 @@ class MapControls extends StatelessWidget {
     return Positioned(
       right: right,
       bottom: bottom,
-      child: Panel(
-        radius: 12,
-        padding: const EdgeInsets.all(2),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _Ctl('plus', 'Zoom in', () => service.zoomBy(1), t),
-            _Ctl('minus', 'Zoom out', () => service.zoomBy(-1), t),
-            _Ctl('compass', 'Face north, and flat', service.resetNorth, t),
-          ],
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Beside the zoom buttons rather than among them: a drag starting within about 30dp of the screen's
+          // edge is Android's back gesture, and dragging left from there left the app.
+          Panel(radius: 12, padding: const EdgeInsets.all(2), child: _OrbitHandle(service, t)),
+          const SizedBox(width: 6),
+          Panel(
+            radius: 12,
+            padding: const EdgeInsets.all(2),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _Ctl('plus', 'Zoom in', () => service.zoomBy(1), t),
+                _Ctl('minus', 'Zoom out', () => service.zoomBy(-1), t),
+                _Ctl('compass', 'Face north, and flat', service.resetNorth, t),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Press and drag: up and down tilt the 3D view, left and right turn it. The drag carries on past the button
+/// for as long as the finger stays down. A tap says what it's for.
+class _OrbitHandle extends StatelessWidget {
+  const _OrbitHandle(this.service, this.t);
+  final MapService service;
+  final Tokens t;
+
+  void _step(Offset drag) {
+    service.orbitStart();
+    service.orbitBy(drag);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const label = 'Drag to tilt and turn the map';
+    return Tooltip(
+      message: label,
+      triggerMode: TooltipTriggerMode.tap,
+      excludeFromSemantics: true,
+      child: Semantics(
+        container: true,
+        label: label,
+        excludeSemantics: true,
+        onScrollUp: () => _step(const Offset(0, -30)),
+        onScrollDown: () => _step(const Offset(0, 30)),
+        onScrollLeft: () => _step(const Offset(-30, 0)),
+        onScrollRight: () => _step(const Offset(30, 0)),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (_) => service.orbitStart(),
+          onPanUpdate: (d) => service.orbitBy(d.delta),
+          child: SizedBox(width: 38, height: 38, child: Center(child: AppIcon('orbit', size: 20, color: t.ink))),
         ),
       ),
     );

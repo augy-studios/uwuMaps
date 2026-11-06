@@ -6,10 +6,12 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:maplibre_gl/maplibre_gl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uwumaps/core/format.dart';
 import 'package:uwumaps/core/models.dart';
 import 'package:uwumaps/core/prefs.dart';
+import 'package:uwumaps/map/map_service.dart';
 import 'package:uwumaps/nearby/binarypack.dart';
 import 'package:uwumaps/share/links.dart';
 import 'package:uwumaps/theme/theme_controller.dart';
@@ -260,6 +262,32 @@ void main() {
       expect(n.notes[0].items[2].text, 'A plain item');
       expect(n.notes[1].items[0].title, 'Offline maps');
       expect(n.notes[1].items[0].text, 'No connection needed.');
+    });
+  });
+
+  group('the orbit handle', () {
+    const from = CameraPosition(target: LatLng(1.28, 103.85), zoom: 15, tilt: 30, bearing: 10);
+
+    test('up tilts further and down flattens, over the same spot', () {
+      final up = orbited(from, const Offset(0, -20));
+      expect(up.tilt, 40);
+      expect(up.bearing, 10);
+      expect(up.target, from.target);
+      expect(up.zoom, 15);
+      expect(orbited(from, const Offset(0, 20)).tilt, 20);
+    });
+
+    test('sideways turns without tilting', () {
+      final right = orbited(from, const Offset(10, 0));
+      expect(right.bearing, 18);
+      expect(right.tilt, 30);
+      expect(orbited(from, const Offset(-10, 0)).bearing, 2);
+    });
+
+    test('the tilt stops at flat and at 60, and the bearing goes round', () {
+      expect(orbited(from, const Offset(0, -500)).tilt, 60);
+      expect(orbited(from, const Offset(0, 500)).tilt, 0);
+      expect(orbited(from, const Offset(-50, 0)).bearing, 330);
     });
   });
 }

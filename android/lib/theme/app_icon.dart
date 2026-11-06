@@ -32,6 +32,7 @@ const Map<String, IconData> _material = {
   'plus': Icons.add,
   'minus': Icons.remove,
   'compass': Icons.explore_outlined,
+  'orbit': Icons.open_with,
   'sync': Icons.sync,
   'pin': Icons.place_outlined,
   'list': Icons.list,
@@ -62,6 +63,7 @@ const Map<String, String> _extra = {
   'update': '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v8M8.5 12l3.5 3.5 3.5-3.5"/>',
   'minus': '<path d="M5 12h14"/>',
   'compass': '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+  'orbit': '<path d="M12 3v18M3 12h18M9.5 5.5 12 3l2.5 2.5M9.5 18.5 12 21l2.5-2.5M5.5 9.5 3 12l2.5 2.5M18.5 9.5 21 12l-2.5 2.5"/>',
   'qr': '<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/>',
 };
 
