@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#CCFFCC</color>
+    <!-- The page's colour at first paint, so there's no white flash before the map. -->
+    <color name="page">#EBF3EC</color>
+</resources>

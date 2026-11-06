@@ -6,6 +6,9 @@ Explore cities in colourful 3D and find your way on foot, by bike or by car. Liv
 | Folder | What |
 | --- | --- |
 | `main-site/` | The PWA and its API routes. Vercel serves this folder. See its [README](main-site/README.md). |
+| `android/` | The Android app, native in Flutter, not a WebView. See its [README](android/README.md). |
+| `release/` | The Android APKs, and how to publish one. See its [README](release/README.md). |
+| `announcement/` | Each release's notes and announcement. |
 | `tools/` | Builds offline packs (`tools/packs/`) and refreshes the public transport snapshots (`tools/vendor-transit.mjs`). |
 | `migrations/` | SQL to run once each, in order, in the Supabase SQL editor. Never edited after: changes go in a new file. |
 | `tests/` | Playwright tests and checks against real Singapore data. |
@@ -60,6 +63,8 @@ node unit/migrations-check.mjs     # The migrations, on a real Postgres
 node unit/decode-check.mjs         # The live feed decoder, on made-up and real feeds
 node unit/route-check.mjs .fixture/singapore.route
 ```
+
+The Android app has its own, in `tests/flutter/` and `android/test/`: see [its README](android/README.md#testing).
 
 The tests run the site on `tests/dev-server.mjs`, which stands in for Vercel, Supabase and the GitHub
 release, so they need no accounts. They do need the internet for Overture, OpenFreeMap and the like.

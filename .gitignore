@@ -6,3 +6,21 @@ node_modules/
 tests/.fixture/
 test-results/
 playwright-report/
+
+# A key saved anywhere by mistake.
+android.keystore
+*.keystore
+*.jks
+*.p12
+*.pfx
+keystore.properties
+google-services.json
+*firebase-adminsdk*.json
+.env.*
+!.env.example
+
+# release/ keeps only the APKs and its README.
+release/**
+!release/*/
+!release/README.md
+!release/*/*.apk
