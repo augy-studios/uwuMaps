@@ -51,7 +51,7 @@ bool validSelfLink(Map<String, dynamic> payload) {
   return false;
 }
 
-/// What a link means, whichever way it came: maps.uwuapps.org, or uwu://uwumaps/.
+/// What a link means, whichever way it came: maps.uwuapps.org, or uwu://maps/.
 sealed class LinkTarget {
   const LinkTarget();
 }
@@ -73,7 +73,7 @@ class JoinLink extends LinkTarget {
 
 LinkTarget? parseLink(Uri uri) {
   final origin = Uri.parse(siteOrigin);
-  final ours = (uri.scheme == 'uwu' && uri.host == 'uwumaps') || (uri.scheme == 'https' && uri.host == 'maps.uwuapps.org') || uri.host == origin.host;
+  final ours = (uri.scheme == 'uwu' && uri.host == 'maps') || (uri.scheme == 'https' && uri.host == 'maps.uwuapps.org') || uri.host == origin.host;
   if (!ours) return null;
   final path = RegExp(r'^/(go|trip|eta|list)/([a-z0-9]{10})$').firstMatch(uri.path);
   if (path != null) return ShortLink(path[2]!);

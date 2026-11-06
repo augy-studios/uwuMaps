@@ -71,7 +71,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="uwu" android:host="uwumaps" />
+                <data android:scheme="uwu" android:host="maps" />
             </intent-filter>
         </activity>
 

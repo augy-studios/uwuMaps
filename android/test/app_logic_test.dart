@@ -144,7 +144,7 @@ void main() {
     test('short links, join links and the uwu scheme', () {
       expect(parseLink(Uri.parse('https://maps.uwuapps.org/go/abcde12345')), isA<ShortLink>());
       expect(parseLink(Uri.parse('https://maps.uwuapps.org/#share/abcde12345')), isA<ShortLink>());
-      expect(parseLink(Uri.parse('uwu://uwumaps/#join=BCDFGH')), isA<JoinLink>());
+      expect(parseLink(Uri.parse('uwu://maps/#join=BCDFGH')), isA<JoinLink>());
       expect(parseLink(Uri.parse('uwu://sgbus/go/abcde12345')), isNull);
     });
   });

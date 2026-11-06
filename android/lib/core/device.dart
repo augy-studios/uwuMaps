@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 import 'config.dart';
 
 class Device {
-  static const MethodChannel _channel = MethodChannel('org.uwuapps.uwumaps/device');
+  static const MethodChannel _channel = MethodChannel('org.uwuapps.maps/device');
   static final StreamController<Map<String, dynamic>> _installs = StreamController.broadcast();
   static bool _listening = false;
 
@@ -55,7 +55,7 @@ class Device {
 
   /// What's in a downloaded APK: { package, versionCode }.
   static Future<Map<String, dynamic>?> archiveInfo(String path) async {
-    if (testBuild) return const {'package': 'org.uwuapps.uwumaps', 'versionCode': 1 << 30};
+    if (testBuild) return const {'package': 'org.uwuapps.maps', 'versionCode': 1 << 30};
     final info = await _call<Map<Object?, Object?>>('archiveInfo', {'path': path});
     return info == null ? null : Map<String, dynamic>.from(info);
   }

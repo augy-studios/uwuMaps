@@ -14,7 +14,7 @@ val keystoreFile = rootProject.file("../keystore.properties")
 if (keystoreFile.exists()) keystoreFile.inputStream().use { keystoreProps.load(it) }
 
 android {
-    namespace = "org.uwuapps.uwumaps"
+    namespace = "org.uwuapps.maps"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -24,7 +24,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "org.uwuapps.uwumaps"
+        applicationId = "org.uwuapps.maps"
         minSdk = 24 // Android 7.0
         targetSdk = flutter.targetSdkVersion
         // Both from pubspec.yaml's version: a phone only takes a higher versionCode.

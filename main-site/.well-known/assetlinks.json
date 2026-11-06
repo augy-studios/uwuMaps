@@ -2,7 +2,7 @@
       "relation": ["delegate_permission/common.handle_all_urls"],
       "target": {
         "namespace": "android_app",
-        "package_name": "org.uwuapps.uwumaps",
+        "package_name": "org.uwuapps.maps",
         "sha256_cert_fingerprints": ["A5:CA:11:B7:35:E4:7E:05:64:E1:F1:19:5F:1D:4E:98:50:1D:42:D9:5E:63:14:FA:63:4E:6D:D9:34:0F:0D:61"]
       }
     }]

@@ -1,4 +1,4 @@
-package org.uwuapps.uwumaps
+package org.uwuapps.maps
 
 import android.app.PendingIntent
 import android.content.ActivityNotFoundException
@@ -202,7 +202,7 @@ class MainActivity : FlutterActivity() {
     }
 
     companion object {
-        private const val CHANNEL = "org.uwuapps.uwumaps/device"
+        private const val CHANNEL = "org.uwuapps.maps/device"
         private const val TAG = "uwuMapsUpdate"
         private var showing = WeakReference<MainActivity>(null)
     }

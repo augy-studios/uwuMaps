@@ -58,7 +58,7 @@ skips drafts, pre-releases, tags that don't start `android-v`, and releases whos
 - **Never upload `android.keystore` or `keystore.properties`.** Only the APK.
 - **Back up both of those somewhere safe.** Without them, no installed phone can ever update: everybody would
   have to uninstall and reinstall, and `assetlinks.json` would change.
-- **Google's developer verification**: register `org.uwuapps.uwumaps` with the key's SHA-256 on the Android
+- **Google's developer verification**: register `org.uwuapps.maps` with the key's SHA-256 on the Android
   Developer Console, or Play Protect warns and, as it rolls out, blocks installs.
 
 ## If something goes wrong

@@ -498,7 +498,7 @@ class _UpdatePageState extends State<UpdatePage> with WidgetsBindingObserver {
   // That the file is this app, and newer than the one installed.
   Future<void> _check(ApkFile apk) async {
     final info = await Device.archiveInfo(apk.path);
-    if (info == null || info['package'] != 'org.uwuapps.uwumaps') {
+    if (info == null || info['package'] != 'org.uwuapps.maps') {
       await apk.delete();
       throw const _Stop("The download isn't $_appName, so it wasn't installed.");
     }

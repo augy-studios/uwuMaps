@@ -93,4 +93,4 @@ MapLibre Native, and it has no wallpaper or installer, so check those on a phone
 - [ ] Back closes what's open, then leaves without closing
 - [ ] **Check for updates** says newest; with a newer release, the bar offers it and it installs
 - [ ] A location permission refused, and refused for good, says what to do
-- [ ] A `https://maps.uwuapps.org/go/...` link and a `uwu://uwumaps/` link open in the app
+- [ ] A `https://maps.uwuapps.org/go/...` link and a `uwu://maps/` link open in the app
