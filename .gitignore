@@ -7,6 +7,9 @@ tests/.fixture/
 test-results/
 playwright-report/
 
+# JVM crash dumps, written to wherever Gradle was started.
+hs_err_pid*.log
+
 # A key saved anywhere by mistake.
 android.keystore
 *.keystore
